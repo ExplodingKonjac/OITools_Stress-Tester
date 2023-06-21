@@ -26,28 +26,23 @@ void compileFiles()
 			quitError("Failed to create compiling process for %s.",name.c_str());
 			locker.unlock();
 		}
+		if(WaitForSingleObject(pi.hProcess,15000)!=WAIT_OBJECT_0)
+		{
+			locker.lock();
+			quitFailed("Compiler time limit exceeded on %s.cpp",name.c_str());
+			locker.unlock();
+		}
 		DWORD ret;
-		WaitForSingleObject(pi.hProcess,INFINITE);
 		GetExitCodeProcess(pi.hProcess,&ret);
 		CloseHandle(hwrite);
 
 		locker.lock();
-		std::string buf;
-		DWORD len;
-		if(ret==0)
-		{
-			buf=name+".cpp is successfully compiled.\n";
-			WriteFile(file,buf.c_str(),buf.size(),&len,nullptr);
-			printMessage("%s.cpp has been compiled.",name.c_str());
-		}
-		else
-		{
-			buf="Error message of "+name+":\n";
-			WriteFile(file,buf.c_str(),buf.size(),&len,nullptr);
-			buf=readFile(hread);
-			WriteFile(file,buf.c_str(),buf.size(),&len,nullptr);
-			quitFailed("Compilation error on %s.cpp. See compile.log for details.",name.c_str());
-		}
+		std::string msg;
+		if(ret==0) msg=name+".cpp: successfully compiled.\n";
+		else msg="Failed to compile"+name+":\n"+readFile(hread)+'\n';
+		writeFile(file,msg);
+		if(ret==0) printMessage("%s.cpp is has been compiled.",name.c_str());
+		else quitFailed("Compilation error on %s.cpp. See compile.log for details.",name.c_str());
 		locker.unlock();
 
 		CloseHandle(pi.hProcess);
@@ -56,7 +51,10 @@ void compileFiles()
 	};
 
 	std::vector<std::thread> vec;
-	vec.emplace_back(compileOne,opt.gen_name);
+	if(opt.compile_gen)
+		vec.emplace_back(compileOne,opt.gen_name);
+	if(opt.compile_chk)
+		vec.emplace_back(compileOne,opt.chk_name);
 	vec.emplace_back(compileOne,opt.pro_name);
 	vec.emplace_back(compileOne,opt.std_name);
 	for(auto &i: vec) i.join();

@@ -38,7 +38,7 @@ inline int glca(int u,int v){
 	return d[u]<d[v]?u:v;
 }
 pair<int,int> E[N];
-mt19937_64 rnd(1);
+mt19937_64 mt_rnd(1);
 unordered_map<ull,int> mp,jp;
 struct num{
 	int u;ll w;
@@ -66,7 +66,7 @@ void ch(int u,int fa){
 			pr[v]=(i+1)>>1;
 		}
 		else if(d[v]<d[u]-1){
-			ull w=rnd();mp[w]=(i+1)>>1;
+			ull w=mt_rnd();mp[w]=(i+1)>>1;
 			hs[u]^=w;hs[v]^=w;
 		}
 	}
@@ -192,8 +192,8 @@ inline void rd(int &op){
 	while(ch>='0'&&ch<='9') op=(op<<1)+(op<<3)+(ch^48),ch=getchar();
 }
 int main(){
-	freopen("data.in","r",stdin);
-	freopen("data.ans","w",stdout);
+	// freopen("data.in","r",stdin);
+	// freopen("data.ans","w",stdout);
 	rd(id);
 	while(id--){
 		rd(n);rd(m);

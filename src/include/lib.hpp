@@ -74,11 +74,18 @@ inline std::string readFile(HANDLE file,DWORD size=INFINITE)
 	DWORD len,ret;
 	while(true)
 	{
-		ret=ReadFile(file,buf,BUF_SIZE,&len,nullptr);
+		ret=ReadFile(file,buf,std::min(size,BUF_SIZE),&len,nullptr);
 		if(!ret || !len) break;
+		size-=len;
 		res.append(buf,len);
 	}
 	return res;
+}
+
+inline bool writeFile(HANDLE file,const std::string &s)
+{
+	DWORD len;
+	return WriteFile(file,s.c_str(),s.size(),&len,nullptr);
 }
 
 template<typename ...Args>

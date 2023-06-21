@@ -17,13 +17,13 @@ MODULES_OBJ = $(patsubst src/%.h, obj/%.o, $(MODULES_HDR))
 obj/core.o: src/core.cpp src/core.h src/include/lib.hpp
 	g++ $< -o $@ -c -std=c++17 -Isrc/include/ -O2
 
-obj/cleaner.o: src/cleaner.cpp src/cleaner.h src/include/lib.hpp
+obj/cleaner.o: src/cleaner.cpp src/core.h src/cleaner.h src/include/lib.hpp
 	g++ $< -o $@ -c -std=c++17 -Isrc/include/ -O2
 
-obj/helper.o: src/helper.cpp src/helper.h src/include/lib.hpp
+obj/helper.o: src/helper.cpp src/core.h src/helper.h src/include/lib.hpp
 	g++ $< -o $@ -c -std=c++17 -Isrc/include/ -O2
 
-obj/tester.o: src/tester.cpp src/tester.h src/include/lib.hpp src/include/runner.hpp
+obj/tester.o: src/tester.cpp src/core.h src/tester.h src/include/lib.hpp src/include/runner.hpp
 	g++ $< -o $@ -c -std=c++17 -Isrc/include/ -O2
 
 bin/stress: src/main.cpp src/include/lib.hpp src/include/runner.hpp $(MODULES_OBJ)

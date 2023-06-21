@@ -10,7 +10,8 @@ void parseOption(const std::string &s)
 	auto convert=[&](auto &res,const std::string &s)
 	{
 		static std::istringstream in;
-		in.str(s),in>>res;
+		in.clear(),in.str(s);
+		in>>res;
 		if(in.fail()) quitError("Failed to read value \'%s\'",s.c_str());
 	};
 	auto getval=[&]()

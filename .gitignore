@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# input/output/answer/log files
+*.in
+*.out
+*.ans
+*.log

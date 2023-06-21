@@ -55,10 +55,10 @@ void parseOption(const std::string &s)
 	 	if(val=="unlimited") opt.test_cnt=SIZE_MAX;
 		else convert(opt.test_cnt,val.c_str());
 		break;
-	 case strhash("-cgen"):
+	 case strhash("-cp-gen"):
 		convert(opt.compile_gen,val);
 		break;
-	 case strhash("-cchk"):
+	 case strhash("-cp-chk"):
 		convert(opt.compile_chk,val);
 		break;
 	 default:

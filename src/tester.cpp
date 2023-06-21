@@ -66,26 +66,24 @@ int checkResult(Runner *run,bool ignore_re=false)
 {
 	auto &res=run->getLastResult();
 	auto name=run->getName().c_str();
-	int ret=0;
 	switch(res.type)
 	{
 	 case RunnerResult::TLE:
-		printColor(COLOR_YELLOW,"%s Time Limit Exceeded\n",name),ret=1;
-		break;
+		printColor(COLOR_YELLOW,"%s Time Limit Exceeded\n",name);
+		return 1;
 	 case RunnerResult::MLE:
-	 	printColor(COLOR_YELLOW,"%s Memory Limit Exceeded\n",name),ret=2;
-		break;
+	 	printColor(COLOR_YELLOW,"%s Memory Limit Exceeded\n",name);
+		return 2;
 	 case RunnerResult::RE:
-		if(!ignore_re) printColor(COLOR_RED,"%s Runtime Error\n",name),ret=3;
-		break;
+		if(!ignore_re) printColor(COLOR_RED,"%s Runtime Error (%u)\n",name,res.exit_code);
+		return 3;
 	 case RunnerResult::KILLED:
 		printColor(COLOR_PURPLE,"Terminated\n");
-	 	ret=-1;
-	 	break;
+		return -1;
 	 case RunnerResult::OK:
 		break;
 	}
-	return ret;
+	return 0;
 }
 
 void main()

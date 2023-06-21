@@ -21,7 +21,7 @@ NAME                             DEFAULT VALUE   DESCRIPTION
   * -ml-gen=<memory>             2048            Set the memory limit for Generator as <memoty>MB.
   * -tl-chk=<time>               5000            Set the time limit for Checker as <time>ms.
   * -ml-chk=<memory>             2048            Set the memory limit for Checker as <memoty>MB.
-  * -opt=<opt1>,<opt2>,...       -std=c++17,-O2  Set the compiling options as "<opt1> <opt2> ...".
+  * -opt="<options>"             -std=c++17 -O2  Set the compiling options as <options>.
   * -cnt=<number/unlimited>      unlimited       Set the number of tests as <number>.
 * stress clean [options...]      /               Clean the file produced during testin.
   * -file=<name>                 data            Set the name of files to clean as <name>.in/out/ans/log.

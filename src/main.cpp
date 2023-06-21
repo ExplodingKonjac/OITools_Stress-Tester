@@ -53,16 +53,7 @@ void parseOption(const std::string &s)
 	 	getval(),opt.file=val;
 		break;
 	 case strhash("-opt"):
-	 	opt.compile_opt="";
-		getval();
-		for(std::size_t p=0,nxt;p!=val.npos;)
-		{
-			nxt=s.find(',',p);
-			std::string s;
-			if(nxt==s.npos) s=val.substr(p),p=nxt;
-			else s=val.substr(p,nxt-p),p=nxt+1;
-			opt.compile_opt+=('"'+s+'"');
-		}
+		getval(),opt.compile_opt=val;
 		break;
 	 case strhash("-cnt"):
 	 	getval();

@@ -1,140 +1,233 @@
-#include<cstdio>
-#include<algorithm>
-#include<vector>
-#include<cstring>
-#include<ctime>
+#include<bits/stdc++.h>
+#define ll long long
+#define ull unsigned ll
 using namespace std;
-typedef long long ll;
-typedef pair<ll,int> pr;
-#define mkp make_pair
-const int MAXN=1e5+5,MAXS=1e7;
-const ll INF=1ll<<60;
-int n,q,a[MAXN];
-pr operator +(pr a,pr b){
-	return mkp(a.first+b.first,a.second+b.second);
+const int N=5e5+5,M=1e7+5;
+const ll I=1e9;
+struct edge{
+	int to,nxt;
+}e[N<<1];
+int id,n,m,k,q,hd[N],ct,dt,d[N],top[N],zs[N],F[N],ad[N],pr[N],as;
+bool vis[N];
+vector<int> to[N],in[N],up[N];
+inline void add(int u,int v){
+	e[++ct]=(edge){v,hd[u]};hd[u]=ct;
+	e[++ct]=(edge){u,hd[v]};hd[v]=ct;
 }
-struct node{
-	vector<int> f[2][2];
-}dat[MAXN<<2];
-struct Ques{
-	int x,y,k,id;
-	int l,r,mid;
-}b[MAXN];
-int seg[MAXN][50];
-bool operator <(Ques a,Ques b){
-	return a.mid>b.mid;
-}
-struct Dif{
-	int v,k,x;
-}d[MAXS];
-int m;
-bool operator <(Dif a,Dif b){
-	return a.v>b.v;
-}
-node operator +(node a,node b){
-	node c;
-	for(int i=0; i<2; i++)
-		for(int j=0; j<2; j++)
-			for(int x=0; x<2; x++)
-				for(int y=0; y<2; y++){
-					const vector<int> &v1=a.f[i][x],&v2=b.f[y][j];
-					if(x&&y||v1.empty()||v2.empty()) continue;
-					vector<int> tmp;
-					int p1=0,p2=0;
-					while(p1+p2<v1.size()+v2.size()-1){
-						tmp.push_back(v1[p1]+v2[p2]);
-						if(p2+1==v2.size()||p1+1<v1.size()&&v1[p1+1]+v2[p2]>v1[p1]+v2[p2+1]) p1++;
-						else p2++;
-					}
-					for(int k=0; k<tmp.size(); k++)
-						if(k<c.f[i][j].size()) c.f[i][j][k]=max(c.f[i][j][k],tmp[k]);
-						else c.f[i][j].push_back(tmp[k]);
-				}
-	return c;
-}
-#define lc k<<1
-#define rc k<<1|1
-#define ls lc,l,mid
-#define rs rc,mid+1,r
-void Build(int k,int l,int r){
-	if(l==r){
-		dat[k].f[0][0].push_back(0);
-		dat[k].f[1][1].push_back(0);
-		dat[k].f[1][1].push_back(a[l]);
-		d[++m]=Dif{a[l],k,3};
-		return ;
+void ch1(int u,int fa){
+	ad[u]=1;top[u]=u;zs[u]=0;
+	d[u]=d[fa]+1;F[u]=fa;
+	for(int v:to[u]){
+		if(v==fa) continue;
+		ch1(v,u);ad[u]+=ad[v];
+		zs[u]=ad[v]>ad[zs[u]]?v:zs[u];
 	}
-	int mid=l+r>>1;
-	Build(ls);
-	Build(rs);
-	dat[k]=dat[lc]+dat[rc];
-	for(int x=0; x<2; x++)
-		for(int y=0; y<2; y++)
-			for(int i=1; i<dat[k].f[x][y].size(); i++)
-				d[++m]=Dif{dat[k].f[x][y][i]-dat[k].f[x][y][i-1],k,x<<1|y};
-	return ;
 }
-void Query(int k,int l,int r,int x,int y,int id){
-	if(x<=l&&r<=y){
-		seg[id][++*seg[id]]=k;
-		return ;
-	}
-	int mid=l+r>>1;
-	if(x<=mid) Query(ls,x,y,id);
-	if(mid<y) Query(rs,x,y,id);
-	return ;
+void ch2(int u,int fa){
+	if(zs[u]) top[zs[u]]=top[u];
+	for(int v:to[u]) if(v!=fa) ch2(v,u);
 }
-int vis[MAXN<<2][2][2];
-int ans[MAXN];
-int main(){
-	// freopen("classic.in","r",stdin);
-	// freopen("classic.out","w",stdout);
-	int K;
-	scanf("%d%d",&n,&q);
-	scanf("%d",&K);
-	for(int i=1; i<=n; i++)
-		scanf("%d",a+i);
-	Build(1,1,n);
-	sort(d+1,d+m+1);
-	for(int i=1; i<=q; i++){
-		int l,r,k;
-		scanf("%d%d%d",&l,&r,&k);
-		b[i]=Ques{l,r,k,i,(int)(-5e8),10000,-10000};
-		Query(1,1,n,l,r,i);
+void dfs1(int u,int fa){
+	for(int v:to[u]) if(v!=fa) dfs1(v,u),ad[u]+=ad[v];
+}
+inline int glca(int u,int v){
+	while(top[u]!=top[v]){
+		if(d[top[u]]<d[top[v]]) swap(u,v);
+		u=F[top[u]];
 	}
-	while(1){
-		bool ok=0;
-		for(int i=1; i<=q; i++)
-			if(b[i].l<b[i].r) ok=1;
-		sort(b+1,b+q+1);
-		memset(vis,0,sizeof(int)*(n<<4|5));
-		for(int i=1,j=1; i<=q; i++){
-			if(ok&&b[i].l==b[i].r) continue;
-			while(j<=m&&d[j].v>b[i].mid)
-				vis[d[j].k][d[j].x>>1&1][d[j].x&1]++,j++;
-			pr f[2],g[2],p[2][2];
-			f[0]=f[1]=mkp(0ll,0);
-			for(int l=1; l<=*seg[b[i].id]; l++){
-				int k=seg[b[i].id][l];
-				for(int x=0; x<2; x++)
-					for(int y=0; y<2; y++)
-						if(!dat[k].f[x][y].empty()) p[x][y]=mkp(dat[k].f[x][y][vis[k][x][y]]-1ll*b[i].mid*vis[k][x][y],-vis[k][x][y]);
-						else p[x][y]=mkp(-INF,0);
-				g[0]=f[0];
-				g[1]=f[1];
-				f[0]=max(g[1]+p[0][0],g[0]+max(p[0][0],p[1][0]));
-				f[1]=max(g[1]+p[0][1],g[0]+max(p[0][1],p[1][1]));
-			}
-			pr res=max(f[0],f[1]);
-			if(ok){
-				if(-res.second>b[i].k) b[i].l=b[i].mid+1;
-				else b[i].r=b[i].mid;
-				b[i].mid=b[i].l+b[i].r>>1;
-			}else ans[b[i].id]=res.first+1ll*b[i].k*b[i].mid;
+	return d[u]<d[v]?u:v;
+}
+pair<int,int> E[N];
+mt19937_64 rnd(1);
+unordered_map<ull,int> mp,jp;
+struct num{
+	int u;ll w;
+	inline num()=default;
+	inline num(int _u,ll _w):u(_u),w(_w){};
+	inline bool operator <(const num tp)const{
+		return w<tp.w;
+	}
+	inline num operator +(const ll v)const{
+		return num(u,v+w);
+	}
+	inline num& operator +=(const ll v){
+		w+=v;return *this;
+	}
+}mx[M],a[N];
+int nt[N],B,L,s[M][2],rt[N],x,y,z,md[M],lz[M];
+ull hs[N];
+void ch(int u,int fa){
+	d[u]=d[fa]+1;L=max(L,d[u]);
+	for(int i=hd[u],v;i;i=e[i].nxt){
+		v=e[i].to;
+		if(!d[v]){
+			ch(v,u);hs[u]^=hs[v];
+			to[u].push_back(v);
+			pr[v]=(i+1)>>1;
 		}
-		if(!ok) break;
+		else if(d[v]<d[u]-1){
+			ull w=rnd();mp[w]=(i+1)>>1;
+			hs[u]^=w;hs[v]^=w;
+		}
 	}
-	for(int i=1; i<=q; i++)
-		printf("%d\n",ans[i]);
-	return 0;
+}
+class seg{
+public:
+	int md[N<<2];
+	num mx[N<<2];
+	inline void push(int o){
+		if(!md[o]) return ;
+		md[o<<1|0]+=md[o];mx[o<<1|0]+=I*md[o];
+		md[o<<1|1]+=md[o];mx[o<<1|1]+=I*md[o];
+		md[o]=0;
+	}
+	void set(int o,int l,int r){
+		if(l==r){mx[o]=num(l,z);return ;}
+		int mid=(l+r)>>1;push(o);
+		x<=mid?set(o<<1,l,mid):set(o<<1|1,mid+1,r);
+		mx[o]=max(mx[o<<1],mx[o<<1|1]);
+	}
+	void mdi(int o,int l,int r){
+		if(x<=l&&y>=r){
+			md[o]+=z;mx[o]+=z*I;
+			return ;
+		}
+		int mid=(l+r)>>1;push(o);
+		if(x<=mid) mdi(o<<1,l,mid);
+		if(y>mid) mdi(o<<1|1,mid+1,r);
+		mx[o]=max(mx[o<<1],mx[o<<1|1]); 
+	}
+}T;
+inline void push(int o){
+	if(!md[o]) return ;
+	if(s[o][0]) md[s[o][0]]+=md[o],mx[s[o][0]]+=I*md[o];
+	if(s[o][1]) md[s[o][1]]+=md[o],mx[s[o][1]]+=I*md[o];
+	md[o]=0;
+}
+inline num get(int o,int o2){
+	return o?mx[o]:T.mx[o2];
+}
+void ins(int &o,int o2,int l,int r){
+	if(!o){
+		o=++B;mx[o]=T.mx[o2];
+		s[o][0]=s[o][1]=md[o]=lz[o]=0;
+	}
+	if(x<=l&&y>=r){mx[o]+=-2;lz[o]-=2;return ;}
+	int mid=(l+r)>>1;
+	push(o);T.push(o2);
+	if(x<=mid) ins(s[o][0],o2<<1,l,mid);
+	if(y>mid) ins(s[o][1],o2<<1|1,mid+1,r);
+	mx[o]=max(get(s[o][0],o2<<1),get(s[o][1],o2<<1|1))+lz[o];
+}
+void mdi(int o,int o2,int l,int r){
+	if(!o) return ; 
+	if(x<=l&&y>=r){
+		md[o]+=z;mx[o]+=z*I;
+		return ;
+	}
+	int mid=(l+r)>>1;
+	push(o);T.push(o2);
+	if(x<=mid&&s[o][0]) mdi(s[o][0],o2<<1,l,mid);
+	if(y>mid&&s[o][1]) mdi(s[o][1],o2<<1|1,mid+1,r);
+	mx[o]=max(get(s[o][0],o2<<1),get(s[o][1],o2<<1|1))+lz[o];
+}
+void merge(int &o,int o2,int o3,int l,int r){
+	if(!o||!o2){o=o|o2;return ;}
+	lz[o]+=lz[o2];
+	if(l==r){mx[o]=T.mx[o3]+lz[o];return ;}
+	int mid=(l+r)>>1;
+	push(o);push(o2);T.push(o3);
+	merge(s[o][0],s[o2][0],o3<<1,l,mid);
+	merge(s[o][1],s[o2][1],o3<<1|1,mid+1,r);
+	mx[o]=max(get(s[o][0],o3<<1),get(s[o][1],o3<<1|1))+lz[o];
+}
+num que(int o,int o2,int l,int r){
+	if(x>y) return num(0,-1e18);
+	if(x<=l&&y>=r){return get(o,o2);}
+	int mid=(l+r)>>1;
+	push(o);T.push(o2);
+	num w=num(0,-1e18);
+	if(x<=mid) w=max(w,que(s[o][0],o2<<1,l,mid)); 
+	if(y>mid) w=max(w,que(s[o][1],o2<<1|1,mid+1,r));
+	return w+lz[o];
+}
+inline void upd(ll w,int u,int v){
+	if(w<=as) return ;
+	as=w;E[0]=make_pair(u,v);
+}
+void dfs(int u,int fa){
+	zs[d[u]]=pr[u];
+	if(hs[u]){
+		nt[u]=jp[hs[u]];
+		jp[hs[u]]=u;
+		if(nt[u]){
+			x=d[nt[u]]+1;y=d[u]-1;z=-1;
+			if(x<=y) T.mdi(1,1,L);
+			top[u]=top[nt[u]];
+		}
+		else top[u]=d[u];
+		x=d[u];z=ad[u];
+		T.set(1,1,L);
+	}
+	else a[++k]=num(pr[u],ad[u]);
+	for(int v:to[u]) dfs(v,u),merge(rt[u],rt[v],1,1,L);
+	for(int v:up[u]) x=d[v]+1,y=d[u],ins(rt[u],1,1,L);
+	if(!hs[u]) return ;
+	if(mp.find(hs[u])!=mp.end()) upd(ad[u],mp[hs[u]],pr[u]);
+	x=top[u];y=d[u]-1;
+	num w=que(rt[u],1,1,L)+ad[u];
+	upd(w.w,zs[w.u],pr[u]);
+	if(nt[u]){
+		x=d[nt[u]]+1;y=d[u]-1;z=1;
+		if(x<=y) T.mdi(1,1,L),mdi(rt[u],1,1,L);
+	}
+	jp[hs[u]]=nt[u];
+}
+inline void prt(int o){
+	printf("%d %d\n",E[o].first,E[o].second);
+}
+inline void rd(int &op){
+	char ch=getchar();op=0;
+	while(ch<'0'||ch>'9') ch=getchar();
+	while(ch>='0'&&ch<='9') op=(op<<1)+(op<<3)+(ch^48),ch=getchar();
+}
+int main(){
+	freopen("data.in","r",stdin);
+	freopen("data.ans","w",stdout);
+	rd(id);
+	while(id--){
+		rd(n);rd(m);
+		k=dt=ct=0;as=-1;a[0]=num(0,0);
+		E[0]=make_pair(0,0);
+		memset(hd,0,(n+1)<<2);
+		for(int i=1,u,v;i<=m;i++){
+			rd(u);rd(v);add(u,v);
+			E[i]=make_pair(u,v); 
+		}
+		memset(hs,0,(n+1)<<3);
+		memset(d,0,(n+1)<<2);
+		mp.clear();jp.clear();
+		for(int u=1;u<=n;u++) to[u].clear(),up[u].clear(); 
+		ch(1,0);ch1(1,0);ch2(1,0);
+		memset(ad,0,(n+1)<<2);
+		rd(q);
+		for(int i=1,u,v,w;i<=q;i++){
+			rd(u);rd(v);w=glca(u,v);
+			ad[u]++;ad[v]++;ad[w]-=2;
+			if(w!=u) up[u].push_back(w);
+			if(w!=v) up[v].push_back(w);
+		}
+		fill(T.mx+1,T.mx+(L<<2)+1,num(0,0));
+		memset(T.md,0,(L+1)<<5);
+		memset(rt,0,(n+1)<<2);
+		dfs1(1,0);
+		dfs(1,0);B=0;
+		// printf("%d\n",as);
+		nth_element(a,a+k-1,a+k+1);
+		upd(a[k].w+a[k-1].w,a[k].u,a[k-1].u);
+		if(!E[0].first) E[0].first=1+(E[0].second==1);
+		if(!E[0].second) E[0].second=1+(E[0].first==1);
+		printf("%d\n",as);
+		// prt(E[0].first);prt(E[0].second);
+	}
 }

@@ -1,4 +1,4 @@
-#include "core.h"
+#include "options.h"
 
 Options::Options():
 	file("data"),
@@ -11,7 +11,7 @@ Options::Options():
 	tl_gen(5000),ml_gen(2048_MB),
 	tl_chk(5000),ml_chk(2048_MB),
 	test_cnt(SIZE_MAX),
-	compile_chk(false),compile_gen(true)
+	compile_gen(true),compile_chk(false)
 {}
 
 Options opt{};

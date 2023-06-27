@@ -48,9 +48,6 @@ template<typename T>
 inline std::enable_if_t<!HasCb<T>::value> initmem(T &x)
 { ZeroMemory(&x,sizeof(x)); }
 
-inline bool keyDown(int key)
-{ return GetAsyncKeyState(key)&0x8000; }
-
 inline HANDLE openFile(const std::string &s,char type)
 {
 	SECURITY_ATTRIBUTES sa{sizeof(sa),nullptr,true};
@@ -69,15 +66,31 @@ inline void resetFile(HANDLE file,bool clear=false)
 inline std::string readFile(HANDLE file,DWORD size=INFINITE)
 {
 	constexpr DWORD BUF_SIZE=256;
-	std::string res;
 	char buf[BUF_SIZE];
-	DWORD len,ret;
-	while(true)
+	std::string res;
+	while(size)
 	{
+		DWORD len,ret;
 		ret=ReadFile(file,buf,std::min(size,BUF_SIZE),&len,nullptr);
 		if(!ret || !len) break;
-		size-=len;
-		res.append(buf,len);
+		size-=len,res.append(buf,len);
+	}
+	return res;
+}
+
+inline std::string readPipe(HANDLE pipe,DWORD size=INFINITE)
+{
+	constexpr DWORD BUF_SIZE=256;
+	char buf[BUF_SIZE];
+	std::string res;
+	while(size)
+	{
+		DWORD len,ret;
+		PeekNamedPipe(pipe,nullptr,0,nullptr,&len,nullptr);
+		if(!len) break;
+		ret=ReadFile(pipe,buf,std::min(size,BUF_SIZE),&len,nullptr);
+		if(!ret || !len) break;
+		size-=len,res.append(buf,len);
 	}
 	return res;
 }

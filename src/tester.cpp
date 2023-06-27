@@ -5,12 +5,12 @@ namespace Tester
 
 void compileFiles()
 {
-	SECURITY_ATTRIBUTES sa{sizeof(sa),nullptr,true};
 	HANDLE file=CreateFile("compile.log",GENERIC_WRITE,FILE_SHARE_READ,0,CREATE_ALWAYS,0,nullptr);
 
 	std::mutex locker;
 	auto compileOne=[&](const std::string &name)
 	{
+		SECURITY_ATTRIBUTES sa{sizeof(sa),nullptr,true};
 		HANDLE hread,hwrite;
 		CreatePipe(&hread,&hwrite,&sa,0);
 
@@ -20,34 +20,32 @@ void compileFiles()
 		si.dwFlags|=STARTF_USESTDHANDLES;
 		si.hStdError=hwrite;
 		std::string cmd="g++ "+name+".cpp -o "+name+" "+opt.compile_opt;
-		if(!CreateProcess(nullptr,const_cast<char*>(cmd.data()),nullptr,nullptr,true,0,nullptr,nullptr,&si,&pi))
+		if(!CreateProcess(nullptr,cmd.data(),nullptr,nullptr,true,0,nullptr,nullptr,&si,&pi))
 		{
 			locker.lock();
-			quitError("Failed to create compiling process for %s.",name.c_str());
+			quitError("Failed to create compiling process for %s (%lu).",name.c_str(),GetLastError());
 			locker.unlock();
 		}
 		if(WaitForSingleObject(pi.hProcess,15000)!=WAIT_OBJECT_0)
 		{
 			locker.lock();
-			quitFailed("Compiler time limit exceeded on %s.cpp",name.c_str());
+			quitFailed("Compiler time limit exceeded on %s.cpp.",name.c_str());
 			locker.unlock();
 		}
 		DWORD ret;
 		GetExitCodeProcess(pi.hProcess,&ret);
-		CloseHandle(hwrite);
-
-		locker.lock();
-		std::string msg;
-		if(ret==0) msg=name+".cpp: successfully compiled.\n";
-		else msg="Failed to compile"+name+":\n"+readFile(hread)+'\n';
-		writeFile(file,msg);
-		if(ret==0) printMessage("%s.cpp is has been compiled.",name.c_str());
-		else quitFailed("Compilation error on %s.cpp. See compile.log for details.",name.c_str());
-		locker.unlock();
-
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
-		CloseHandle(hread);
+		CloseHandle(hwrite);
+
+		std::string msg=readPipe(hread);
+		if(ret==0) msg=name+".cpp: successfully compiled. Compiler messages:\n"+msg+'\n';
+		else msg=name+".cpp: compile error. Compiler messages:\n"+msg+'\n';
+		locker.lock();
+		writeFile(file,msg);
+		if(ret==0) printMessage("%s.cpp has been compiled.",name.c_str());
+		else quitFailed("Compilation error on %s.cpp. See compile.log for details.",name.c_str());
+		locker.unlock();
 	};
 
 	std::vector<std::thread> vec;
@@ -73,7 +71,8 @@ int checkResult(Runner *run,bool ignore_re=false)
 	 	printColor(COLOR_YELLOW,"%s Memory Limit Exceeded\n",name);
 		return 2;
 	 case RunnerResult::RE:
-		if(!ignore_re) printColor(COLOR_RED,"%s Runtime Error (%u)\n",name,res.exit_code);
+		if(ignore_re) break;
+		printColor(COLOR_RED,"%s Runtime Error (%u)\n",name,res.exit_code);
 		return 3;
 	 case RunnerResult::KILLED:
 		printColor(COLOR_PURPLE,"Terminated\n");
@@ -127,8 +126,7 @@ void main()
 	std::string chk_argu(opt.file+".in "+opt.file+".out "+opt.file+".ans");
 	for(SIZE_T id=0;id<opt.test_cnt;id++)
 	{
-		std::fprintf(stderr,"Testcase #%lu: ",id);
-		int lsterr=0;
+		std::fprintf(stderr,"Testcase #%llu: ",id);
 
 		gen_run->start();
 		gen_run->wait();

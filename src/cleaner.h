@@ -1,5 +1,5 @@
 #pragma once
-#include "core.h"
+#include "options.h"
 #include "lib.hpp"
 
 namespace Cleaner

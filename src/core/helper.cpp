@@ -1,7 +1,5 @@
 #include "helper.h"
 
-#include <cstdio>
-
 namespace Helper
 {
 

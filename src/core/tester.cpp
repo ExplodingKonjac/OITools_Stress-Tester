@@ -16,7 +16,8 @@ void compileFiles()
 
 		STARTUPINFO si;
 		PROCESS_INFORMATION pi;
-		initmem(si),initmem(pi);
+		initmem(si);
+		initmem(pi);
 		si.dwFlags|=STARTF_USESTDHANDLES;
 		si.hStdError=hwrite;
 		std::string cmd="g++ "+name+".cpp -o "+name+" "+opt.compile_opt;
@@ -26,19 +27,35 @@ void compileFiles()
 			quitError("Failed to create compiling process for %s (%lu).",name.c_str(),GetLastError());
 			locker.unlock();
 		}
-		if(WaitForSingleObject(pi.hProcess,15000)!=WAIT_OBJECT_0)
+		std::string msg;
+		std::thread reading([&]
 		{
+			constexpr int BUF_SIZE=256;
+			for(char buf[BUF_SIZE];;pthread_testcancel())
+			{
+				DWORD len;
+				PeekNamedPipe(hread,nullptr,0,nullptr,&len,nullptr);
+				if(!len) continue;
+				ReadFile(hread,buf,BUF_SIZE,&len,nullptr);
+				msg.append(buf,len);
+			}
+		});
+		DWORD ret=WaitForSingleObject(pi.hProcess,15000);
+		CloseHandle(hwrite);
+		pthread_cancel(reading.native_handle());
+		reading.join();
+		if(ret!=WAIT_OBJECT_0)
+		{
+			TerminateProcess(pi.hProcess,-1);
+			TerminateProcess(pi.hThread,-1);
 			locker.lock();
 			quitFailed("Compiler time limit exceeded on %s.cpp.",name.c_str());
 			locker.unlock();
 		}
-		DWORD ret;
 		GetExitCodeProcess(pi.hProcess,&ret);
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
-		CloseHandle(hwrite);
 
-		std::string msg=readPipe(hread);
 		if(ret==0) msg=name+".cpp: successfully compiled. Compiler messages:\n"+msg+'\n';
 		else msg=name+".cpp: compile error. Compiler messages:\n"+msg+'\n';
 		locker.lock();

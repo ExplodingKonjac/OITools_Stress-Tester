@@ -1,4 +1,4 @@
-#include "core.h"
+#include "options.h"
 #include "helper.h"
 #include "tester.h"
 #include "cleaner.h"

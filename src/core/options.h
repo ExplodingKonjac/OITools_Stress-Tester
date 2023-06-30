@@ -1,5 +1,6 @@
 #pragma once
-#include "lib.hpp"
+#include <string>
+#include <windows.h>
 
 struct Options
 {

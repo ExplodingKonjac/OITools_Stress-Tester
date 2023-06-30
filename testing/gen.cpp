@@ -1,5 +1,4 @@
 #include <bits/stdc++.h>
-#include "testlib.h"
 using namespace std;
 // #define OPENIOBUF
 
@@ -285,19 +284,19 @@ vector<pair<int,int>> randTree(int n,int span)
 } // namespace Random
 using namespace Random;
 
-int n=5,m=5;
+int T=1,n=5,m=5,V=5;
 
-int main(int argc,char *argv[])
+int main()
 {
 	// freopen("input.in","w",stdout);
-	registerGen(argc,argv,1);
-	qout<<n<<'\n';
-	int x=0,y=0;
+	qout<<n<<' '<<m<<'\n';
+	auto t=randTree(n);
+	for(auto &[u,v]: t)
+		qout<<u<<' '<<v<<'\n';
 	for(int i=1;i<=n;i++)
-	{
-		x+=randi(0,m);
-		y+=randi(-m,m);
-		qout<<x<<' '<<y<<'\n';
-	}
+		qout<<randi('a','c');
+	qout<<'\n';
+	for(int i=1;i<=m;i++)
+		qout<<randi('a','c');
 	return 0;
 }

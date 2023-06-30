@@ -10,30 +10,25 @@ bin/chk-%: src/checkers/%.cpp src/checkers/testlib.h.gch
 
 checkers: $(CHECKER_BIN)
 
-MODULES_HDR = $(wildcard src/*.h)
-MODULES_SRC = $(patsubst src/%.h, src/%.cpp, $(MODULES_HDR))
-MODULES_OBJ = $(patsubst src/%.h, obj/%.o, $(MODULES_HDR))
+CORE_HDR = $(wildcard src/core/*.h)
+CORE_SRC = $(wildcard src/core/*.cpp)
+CORE_OBJ = $(patsubst src/core/%.h, obj/%.o, $(CORE_HDR))
 
-CXX_OPT = -std=c++17 -Isrc/include -O2 -Wall
+CXX_OPT = -std=c++17 -Isrc/include -Isrc/core -O2 -Wall
 
-obj/options.o: src/options.cpp src/options.h src/include/lib.hpp
+obj/cleaner.o: obj/options.o src/include/lib.hpp
+
+obj/tester.o: src/include/lib.hpp src/include/runner.hpp
+
+obj/%.o: src/core/%.cpp src/core/%.h
 	g++ $< -o $@ -c $(CXX_OPT)
 
-obj/cleaner.o: src/cleaner.cpp obj/options.o src/cleaner.h src/include/lib.hpp
-	g++ $< -o $@ -c $(CXX_OPT)
-
-obj/helper.o: src/helper.cpp obj/options.o src/helper.h src/include/lib.hpp
-	g++ $< -o $@ -c $(CXX_OPT)
-
-obj/tester.o: src/tester.cpp obj/options.o src/tester.h src/include/lib.hpp src/include/runner.hpp
-	g++ $< -o $@ -c $(CXX_OPT)
-
-bin/stress: src/main.cpp $(MODULES_OBJ)
-	g++ src/main.cpp $(MODULES_OBJ) -o bin/stress $(CXX_OPT)
+bin/stress: src/main.cpp $(CORE_OBJ)
+	g++ src/main.cpp $(CORE_OBJ) -o bin/stress $(CXX_OPT)
 
 all: bin/stress
 
 clean:
-	-rm -rf $(CHECKER_BIN) $(MODULES_OBJ) bin/stress
+	-rm -rf $(CHECKER_BIN) $(CORE_OBJ) bin/stress
 
 .DEFAULT_GOAL := all

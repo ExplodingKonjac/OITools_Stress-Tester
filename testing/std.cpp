@@ -1,99 +1,183 @@
-#include <algorithm>
-#include <cstdio>
-#include <set>
-
+//BadWaper gg
+#include<bits/stdc++.h> 
+#define inf 1e9
+#define eps 1e-6
+#define N 100010
 using namespace std;
-int n, x, t, lx, lt;
-struct yijan
+typedef long long ll;
+typedef unsigned long long ull;
+inline ll read()
 {
-	int li;
-	set<pair<int, int> > si;
-	void insert(int l, int r)
+	char ch=getchar();
+	ll s=0,w=1;
+	while(ch<'0'||ch>'9'){if(ch=='-')w=-1;ch=getchar();}
+	while(ch>='0'&&ch<='9'){s=s*10+ch-'0';ch=getchar();}
+	return s*w;
+}
+ll n,m;
+struct edge
+{
+	ll next,to;
+}e[N<<1];
+ll head[N],cnt,vis[N];
+ll pos1[N],pos2[N];
+ll a[N],s[N];
+char s1[N],s2[N];
+ll siz[N],C[N],p[N],ans;
+ll minn=inf,rt,block;
+struct SAM
+{
+	ll len[N],ch[N][26],fa[N];
+	ll tot,son[N][26],R[N],siz[N],num[N],last;
+	ll p[N],c[N];
+	ll s[N];
+	SAM(){tot=last=1;}
+	inline void insert(ll x)
 	{
-		l += li;
-		r -= li;
-		int fg = 0;
-		set<pair<int, int> >::iterator it =
-			si.lower_bound(make_pair(l + 1, -2e9));
-		if(it != si.begin())
+		ll nowp=++tot,p=last;len[nowp]=len[p]+1;siz[nowp]=1;R[nowp]=len[nowp];
+		while(p&&!ch[p][x])ch[p][x]=nowp,p=fa[p];
+		if(!p)fa[nowp]=1;
+		else 
 		{
-			it--;
-			if((*it).second >= r) fg = 1;
-		}
-		if(!fg)
-		{
-			while(1)
+			ll q=ch[p][x];
+			if(len[q]==len[p]+1)fa[nowp]=q;
+			else
 			{
-				it = si.lower_bound(make_pair(l, -2e9));
-				if(it == si.end() || (*it).second > r) break;
-				si.erase(it);
+				ll nowq=++tot;len[nowq]=len[p]+1;
+				fa[nowq]=fa[q];fa[q]=nowq,fa[nowp]=nowq;
+				for(ll i=0;i<26;i++)ch[nowq][i]=ch[q][i];
+				while(p&&ch[p][x]==q)ch[p][x]=nowq,p=fa[p];
 			}
-			si.insert(make_pair(l, r));
 		}
-	}
-	int query(int x, int f1 = 1, int f2 = 1)
+		last=nowp;
+	}//建SAM
+	inline void build()
 	{
-		int as = 2e9;
-		set<pair<int, int> >::iterator it =
-			si.lower_bound(make_pair(x + li, -2e9));
-		if(it != si.end())
+		for(register ll i=1;i<=tot;i++)c[len[i]]++;
+		for(register ll i=1;i<=m;i++)c[i]+=c[i-1];
+		for(register ll i=1;i<=tot;i++)p[c[len[i]]--]=i;//基排
+		for(register ll i=tot;i>=2;i--)
 		{
-			int vl = max((*it).first - li - x, 0);
-			if(vl && !f2) vl = 2e9;
-			as = min(as, vl);
+			ll x=p[i];
+			siz[fa[x]]+=siz[x];R[fa[x]]=R[x];//R是right集合内任意一个值，所以这里你爱咋搞咋搞啦qwq
+			son[fa[x]][s[R[x]-len[fa[x]]]]=x;//求son
 		}
-		if(it != si.begin())
-		{
-			it--;
-			int vl = max(x - (*it).second - li, 0);
-			if(vl && !f1) vl = 2e9;
-			as = min(as, vl);
-		}
-		return as;
 	}
-} s0, s1;
+	inline void clear(){for(register ll i=1;i<=tot;i++)num[i]=0;}
+	inline void calc(ll now,ll father,ll p,ll L)
+	{
+		if(len[p]==L)p=son[p][a[now]];//情况2
+		else if(s[R[p]-L]!=a[now])p=0;//情况1
+		if(!p)return ;//T不在S直接return
+                num[p]++;
+		for(register ll i=head[now];i;i=e[i].next)
+		{
+			if(e[i].to==father||vis[e[i].to])continue;
+			calc(e[i].to,now,p,L+1);
+		}
+	}
+	inline void pushdown()
+	{
+		for(register ll i=2;i<=tot;i++)//自上而下
+		{
+			ll x=p[i];
+			num[x]+=num[fa[x]];
+		}
+	}
+}S1,S2;
+inline void add_edge(ll from,ll to){e[++cnt]=(edge){head[from],to};head[from]=cnt;}
+void getroot(ll now,ll Ns,ll father)
+{
+	siz[now]=1;ll maxn=-inf;
+	for(register ll i=head[now];i;i=e[i].next)
+	{
+		if(e[i].to==father||vis[e[i].to])continue;
+		getroot(e[i].to,Ns,now);siz[now]+=siz[e[i].to];
+		maxn=max(maxn,siz[e[i].to]);
+	}
+	maxn=max(maxn,Ns-siz[now]);
+	if(maxn<minn)minn=maxn,rt=now;
+}//点分治求根
+void dfs1(ll now,ll father)
+{
+	p[++p[0]]=now;
+	for(register ll i=head[now];i;i=e[i].next)
+	{
+		if(e[i].to==father||vis[e[i].to])continue;
+		dfs1(e[i].to,now);
+	}
+}//n^2暴力
+void dfs2(ll now,ll father,ll x)
+{
+	x=S1.ch[x][a[now]];if(!x)return ;
+	ans+=S1.siz[x];
+	for(register ll i=head[now];i;i=e[i].next)
+	{
+		if(e[i].to==father||vis[e[i].to])continue;
+		dfs2(e[i].to,now,x);
+	}
+}//n^2暴力
+void calc(ll x,ll father,ll f)
+{
+	S1.clear(),S2.clear();
+	if(father)
+	{
+		S1.calc(x,0,S1.son[1][a[father]],1);
+		S2.calc(x,0,S2.son[1][a[father]],1);
+	}
+	else {S1.calc(x,0,1,0);S2.calc(x,0,1,0);}
+	S1.pushdown();S2.pushdown();
+	for(register ll i=1;i<=m;i++)
+	{
+		ans+=f*S1.num[pos1[i]]*S2.num[pos2[m-i+1]];
+	}//统计答案，注意因为串反过来了所以后面是m-i+1
+}
+void DFS(ll now,ll father)
+{
+	C[now]=1;
+	for(register ll i=head[now];i;i=e[i].next)
+	{
+		if(e[i].to==father||vis[e[i].to])continue;
+		DFS(e[i].to,now);C[now]+=C[e[i].to];
+	}
+}//求分治子树大小
+void dfs(ll now,ll Ns)
+{
+	if(Ns<=block)
+	{
+		p[0]=0;dfs1(now,0);
+		for(ll i=1;i<=p[0];i++)dfs2(p[i],0,1);
+		return ;
+	}//n^2暴力
+	vis[now]=1;calc(now,0,1);DFS(now,0);
+	for(register ll i=head[now];i;i=e[i].next)
+	{
+		if(vis[e[i].to])continue;
+		calc(e[i].to,now,-1);//容斥，把同一子树的答案容斥掉
+                minn=inf,rt=0;
+		getroot(e[i].to,C[e[i].to],0);dfs(rt,C[e[i].to]);
+	}
+}
 int main()
 {
-	scanf("%d", &n);
-	s1.insert(0, 0);
-	for(int i = 1; i <= n; i++)
+	//freopen(".in","r",stdin);
+	//freopen(".out","w",stdout);
+	n=read(),m=read();block=sqrt(n);
+	for(register ll i=1;i<n;i++)
 	{
-		scanf("%d%d", &t, &x);
-		int ds = 2e9, lb = s0.query(x - (t - lt), 0, 1),
-			rb = s0.query(x + (t - lt), 1, 0);
-		if(s1.si.size())
-		{
-			ds = min(ds, lx > x ? lx - x : x - lx);
-			if(lx >= x - (t - lt)) lb = min(lb, lx - x + t - lt);
-			if(lx <= x + (t - lt)) rb = min(rb, x + t - lt - lx);
-		}
-		ds = min(ds, s0.query(x));
-		int f0 = s1.query(x) == 0, f1 = s0.query(x) <= t - lt;
-		if((lx > x ? lx - x : x - lx) > t - lt) s1.si.clear();
-		if(lx != x) s0.si.clear();
-		s0.li += t - lt;
-		if(f0) s0.insert(lx - (t - lt), lx + (t - lt));
-		if(f1) s1.insert(lx, lx);
-		if(ds <= t - lt) s0.insert(x - (t - lt - ds), x + (t - lt - ds));
-		if(lb <= (t - lt) * 2)
-		{
-			int lx = x - (t - lt) + lb, rx = x;
-			if(lx > rx) swap(lx, rx);
-			int ri = t - lt - rx + lx;
-			s1.insert(lx - ri / 2, rx + ri / 2);
-		}
-		if(rb <= (t - lt) * 2)
-		{
-			int lx = x + (t - lt) - rb, rx = x;
-			if(lx > rx) swap(lx, rx);
-			int ri = t - lt - rx + lx;
-			s1.insert(lx - ri / 2, rx + ri / 2);
-		}
-		lx = x;
-		lt = t;
+		ll x=read(),y=read();
+		add_edge(x,y);add_edge(y,x);
 	}
-	if(s0.si.size() || s1.si.size())
-		printf("YES\n");
-	else
-		printf("NO\n");
+	scanf("%s",s1+1);
+	for(register ll i=1;i<=n;i++)a[i]=s1[i]-'a';
+	scanf("%s",s2+1);
+	for(register ll i=1;i<=m;i++)s[i]=s2[i]-'a';
+	for(register ll i=1;i<=m;i++)S1.insert(s[i]),pos1[i]=S1.last,S1.s[i]=s[i];
+	reverse(s+1,s+m+1);//把串翻转之后第二个统计与第一个统计类似
+	for(register ll i=1;i<=m;i++)S2.insert(s[i]),pos2[i]=S2.last,S2.s[i]=s[i];
+	S1.build();S2.build();
+	getroot(1,n,0);dfs(rt,n);
+	printf("%lld\n",ans);
+	return 0;
 }
+

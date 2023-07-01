@@ -1,6 +1,11 @@
 #pragma once
+
+#include "lib.hpp"
+
 #include <string>
+#include <sstream>
 #include <windows.h>
+#include <getopt.h>
 
 struct Options
 {
@@ -12,3 +17,5 @@ struct Options
 };
 
 extern Options opt;
+
+void parseOptions(int argc,char *argv[]);

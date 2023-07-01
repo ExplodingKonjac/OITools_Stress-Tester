@@ -100,8 +100,14 @@ int checkResult(Runner *run,bool ignore_re=false)
 	return 0;
 }
 
-void main()
+void main(const std::vector<const char*> &args)
 {
+	if(args.size()>1)
+		printMessage("Redundant arguments ignored.");
+	if(args.empty())
+		quitError("Missing testee code.");
+	opt.pro_name=args[0];
+
 	compileFiles();
 	std::fputc('\n',stderr);
 

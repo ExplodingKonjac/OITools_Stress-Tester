@@ -10,7 +10,7 @@ inline constexpr auto COLOR_BLUE=FOREGROUND_BLUE;
 inline constexpr auto COLOR_GREEN=FOREGROUND_GREEN;
 inline constexpr auto COLOR_PURPLE=FOREGROUND_RED|FOREGROUND_BLUE;
 inline constexpr auto COLOR_YELLOW=FOREGROUND_RED|FOREGROUND_GREEN;
-inline constexpr auto COLOR_SKYBLUE=FOREGROUND_BLUE|FOREGROUND_GREEN;
+inline constexpr auto COLOR_CYAN=FOREGROUND_BLUE|FOREGROUND_GREEN;
 
 inline HANDLE hStdin()
 { return GetStdHandle(STD_INPUT_HANDLE); }
@@ -131,7 +131,7 @@ template<typename ...Args>
 template<typename ...Args>
 inline void printNote(const char *fmt,Args ...args)
 {
-	printColor(COLOR_SKYBLUE,"[Note] ");
+	printColor(COLOR_CYAN,"[Note] ");
 	std::fprintf(stderr,fmt,args...);
 	std::fputc('\n',stderr);
 }

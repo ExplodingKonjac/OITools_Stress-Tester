@@ -9,8 +9,10 @@ void tryDelete(const std::string &name)
 	if(ret) printMessage("Successfully deleted file %s.",name.c_str());
 	else printMessage("Failed to delete file %s (%lu).",name.c_str(),GetLastError());
 }
-void main()
+void main(const std::vector<const char*> &args)
 {
+	if(args.size()>1)
+		printMessage("Redundant arguments ignored.");
 	tryDelete("compile.log");
 	tryDelete(opt.file+".in");
 	tryDelete(opt.file+".out");

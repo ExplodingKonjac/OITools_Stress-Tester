@@ -5,74 +5,48 @@ namespace Tester
 
 void compileFiles()
 {
-	HANDLE file=CreateFile("compile.log",GENERIC_WRITE,FILE_SHARE_READ,0,CREATE_ALWAYS,0,nullptr);
+	namespace bp=boost::process;
+	namespace asio=boost::asio;
+	using Handler=std::function<void(const boost::system::error_code&,std::size_t)>;
 
+	std::ofstream fout("compile.log");
 	std::mutex locker;
 	auto compileOne=[&](const std::string &name)
 	{
-		SECURITY_ATTRIBUTES sa{sizeof(sa),nullptr,true};
-		HANDLE hread,hwrite;
-		CreatePipe(&hread,&hwrite,&sa,0);
-
-		STARTUPINFO si;
-		PROCESS_INFORMATION pi;
-		initmem(si);
-		initmem(pi);
-		si.dwFlags|=STARTF_USESTDHANDLES;
-		si.hStdError=hwrite;
-		std::string cmd="g++ "+name+".cpp -o "+name+" "+opt.compile_opt;
-		if(!CreateProcess(nullptr,cmd.data(),nullptr,nullptr,true,0,nullptr,nullptr,&si,&pi))
-		{
-			locker.lock();
-			quitError("Failed to create compiling process for %s (%lu).",name.c_str(),GetLastError());
-			locker.unlock();
-		}
+		asio::io_context ios;
+		bp::async_pipe ap(ios);
+		bp::child proc(
+			"g++ "+name+".cpp -o "+name+" "+opt.compile_opt,
+			bp::std_err>ap,
+			ios,
+			bp::on_exit=[&](auto...){ ap.close(); }
+		);
 		std::string msg;
-		std::thread reading([&]
+		std::vector<char> buf(512);
+		Handler func=[&](auto ec,auto siz)
 		{
-			constexpr int BUF_SIZE=256;
-			for(char buf[BUF_SIZE];;pthread_testcancel())
-			{
-				DWORD len;
-				PeekNamedPipe(hread,nullptr,0,nullptr,&len,nullptr);
-				if(!len) continue;
-				ReadFile(hread,buf,BUF_SIZE,&len,nullptr);
-				msg.append(buf,len);
-			}
-		});
-		DWORD ret=WaitForSingleObject(pi.hProcess,15000);
-		CloseHandle(hwrite);
-		pthread_cancel(reading.native_handle());
-		reading.join();
-		if(ret!=WAIT_OBJECT_0)
-		{
-			TerminateProcess(pi.hProcess,-1);
-			TerminateProcess(pi.hThread,-1);
-			locker.lock();
-			quitFailed("Compiler time limit exceeded on %s.cpp.",name.c_str());
-			locker.unlock();
-		}
-		GetExitCodeProcess(pi.hProcess,&ret);
-		CloseHandle(pi.hProcess);
-		CloseHandle(pi.hThread);
-
-		if(ret==0) msg=name+".cpp: successfully compiled. Compiler messages:\n"+msg+'\n';
-		else msg=name+".cpp: compile error. Compiler messages:\n"+msg+'\n';
+			msg.append(buf.data(),siz);
+			if(!ec) asio::async_read(ap,asio::buffer(buf),func);
+		};
+		asio::async_read(ap,asio::buffer(buf),func);
+		ios.run();
+		proc.wait();
+		int ret=proc.exit_code();
 		locker.lock();
-		writeFile(file,msg);
+		if(ret==0) fout<<name<<".cpp: successfully compiled. Compiler messages:\n"<<msg;
+		else fout<<name<<".cpp: compile error. Compiler messages:\n"<<msg;
+		fout.flush();
 		if(ret==0) printMessage("%s.cpp has been compiled.",name.c_str());
 		else quitFailed("Compilation error on %s.cpp. See compile.log for details.",name.c_str());
 		locker.unlock();
 	};
-
 	std::vector<std::thread> vec;
-	if(opt.compile_gen)
-		vec.emplace_back(compileOne,opt.gen_name);
-	if(opt.compile_chk)
-		vec.emplace_back(compileOne,opt.chk_name);
+	if(opt.compile_gen) vec.emplace_back(compileOne,opt.gen_name);
+	if(opt.compile_chk) vec.emplace_back(compileOne,opt.chk_name);
 	vec.emplace_back(compileOne,opt.pro_name);
 	vec.emplace_back(compileOne,opt.std_name);
 	for(auto &i: vec) i.join();
+	fout.close();
 }
 
 int checkResult(Runner *run,bool ignore_re=false)
@@ -82,17 +56,17 @@ int checkResult(Runner *run,bool ignore_re=false)
 	switch(res.type)
 	{
 	 case RunnerResult::TLE:
-		printColor(COLOR_YELLOW,"%s Time Limit Exceeded\n",name);
+		printColor(TextAttr::fg_yellow,"%s Time Limit Exceeded\n",name);
 		return 1;
 	 case RunnerResult::MLE:
-	 	printColor(COLOR_YELLOW,"%s Memory Limit Exceeded\n",name);
+	 	printColor(TextAttr::fg_yellow,"%s Memory Limit Exceeded\n",name);
 		return 2;
 	 case RunnerResult::RE:
 		if(ignore_re) break;
-		printColor(COLOR_RED,"%s Runtime Error (%u)\n",name,res.exit_code);
+		printColor(TextAttr::fg_red,"%s Runtime Error (%u)\n",name,res.exit_code);
 		return 3;
 	 case RunnerResult::KILLED:
-		printColor(COLOR_PURPLE,"Terminated\n");
+		printColor(TextAttr::fg_purple,"Terminated\n");
 		return -1;
 	 case RunnerResult::OK:
 		break;
@@ -164,26 +138,32 @@ void main(const std::vector<const char*> &args)
 		chk_run->wait();
 		if(checkResult(chk_run,true)) goto bad;
 
+		if(false)
+		{
+			bad: if(force_quit)
+			{
+				cv.notify_all();
+				cv.wait(lk);
+				if(force_quit) break;
+			}
+			else break;
+		}
+
 		if(chk_run->getLastResult().type==RunnerResult::RE)
 		{
-			std::string msg=readFile(openFile(opt.file+".log",'r'),256);
-			if(msg.size()>=256) msg+="...";
-			msg="Failed on testcase #"+std::to_string(id)+" (256 bytes only):\n"+msg+'\n';
-			msg+="See "+opt.file+".log for detail.";
-			printColor(COLOR_RED|FOREGROUND_INTENSITY,"Wrong Answer\n");
+			std::ifstream inf(opt.file+".log");
+			std::vector<char> buf(256);
+			inf.read(buf.data(),buf.size());
+			auto siz=inf.gcount();
+			std::string msg(buf.data(),buf.data()+siz);
+			if(siz==256) msg+="...";
+			msg="Failed on testcase #"+std::to_string(id)+" (256 bytes only):\n"+msg+'\n'+
+				"See "+opt.file+".log for detail.";
+			printColor(TextAttr::fg_red|TextAttr::intensity,"Wrong Answer\n");
 			MessageBox(nullptr,msg.c_str(),"Oops",MB_ICONERROR);
 			break;
 		}
-		printColor(COLOR_GREEN|FOREGROUND_INTENSITY,"Accepted\n");
-		if(!force_quit) continue;
-
-		bad: if(force_quit)
-		{
-			cv.notify_all();
-			cv.wait(lk);
-			if(force_quit) break;
-		}
-		else break;
+		printColor(TextAttr::fg_green|TextAttr::intensity,"Accepted\n");
 	}
 	delete gen_run;
 	delete pro_run;

@@ -38,7 +38,6 @@ static const char short_opts[]=
 ;
 void parseOptions(int argc,char *argv[])
 {
-	int arg,idx;
 	std::istringstream is;
 	is>>std::boolalpha;
 	auto convert=[&](auto &res,const char *val)
@@ -47,10 +46,11 @@ void parseOptions(int argc,char *argv[])
 		is>>res;
 		if(is.fail()) quitError("Failed to read value %s for option %s.",val,argv[optind-1]);
 	};
+	int arg,idx;
 	opterr=0;
 	while(~(arg=getopt_long(argc,argv,short_opts,long_opts,&idx)))
 	{
-		switch(optopt)
+		switch(arg)
 		{
 		 case 'f':
 			opt.file=optarg;

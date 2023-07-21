@@ -1,5 +1,7 @@
 #pragma once
 
+#include <boost/process.hpp>
+#include <boost/asio.hpp>
 #include "options.h"
 #include "runner.hpp"
 

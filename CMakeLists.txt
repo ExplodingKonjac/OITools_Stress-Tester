@@ -15,6 +15,9 @@ elseif(CMAKE_BUILD_TYPE AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 else()
 	message(FATAL_ERROR "Unknown build type.")
 endif()
+set(BOOST_ROOT D:/Programs/boost/)
+set(Boost_NO_SYSTEM_PATHS ON)
+find_package(Boost COMPONENTS filesystem REQUIRED)
 
 # checkers
 add_subdirectory(checkers/ EXCLUDE_FROM_ALL)
@@ -23,6 +26,10 @@ add_subdirectory(checkers/ EXCLUDE_FROM_ALL)
 aux_source_directory(src/core/ core_src_list)
 include_directories(src/include/)
 add_executable(stress src/main.cpp ${core_src_list})
+target_link_libraries(stress ${Boost_LIBRARIES})
+if(WIN32)
+	target_link_libraries(stress wsock32 ws2_32)
+endif()
 
 # installing
 install(TARGETS stress DESTINATION .)

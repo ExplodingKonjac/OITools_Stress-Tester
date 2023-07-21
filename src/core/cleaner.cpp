@@ -5,9 +5,12 @@ namespace Cleaner
 
 void tryDelete(const std::string &name)
 {
-	bool ret=DeleteFile(name.c_str());
+	namespace fs=std::filesystem;
+
+	std::error_code ec;
+	bool ret=fs::remove(name,ec);
 	if(ret) printMessage("Successfully deleted file %s.",name.c_str());
-	else printMessage("Failed to delete file %s (%lu).",name.c_str(),GetLastError());
+	else printMessage("Failed to delete file %s (%d).",name.c_str(),ec.value());
 }
 void main(const std::vector<const char*> &args)
 {

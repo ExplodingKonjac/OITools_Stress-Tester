@@ -7,18 +7,19 @@ void printHelp(std::string_view text)
 {
 	bool is_var=false,is_str=false,is_type=false;
 	std::size_t pos=0;
-	HANDLE hout=hStdout();
 	while(pos<text.size())
 	{
 		auto nxt=text.find_first_of("$@`",pos);
+        TextAttr attr=TextAttr::tg_stdout;
 		if(is_var)
-			SetConsoleTextAttribute(hout,COLOR_CYAN);
+			attr|=TextAttr::fg_cyan;
 		else if(is_str)
-			SetConsoleTextAttribute(hout,COLOR_YELLOW);
+			attr|=TextAttr::fg_yellow;
 		else if(is_type)
-			SetConsoleTextAttribute(hout,COLOR_PURPLE|FOREGROUND_INTENSITY);
+			attr|=TextAttr::fg_purple|TextAttr::intensity;
 		else
-			SetConsoleTextAttribute(hout,COLOR_DEFAULT);
+			attr|=TextAttr::plain;
+        setTextAttr(attr);
 		std::cout<<text.substr(pos,nxt-pos);
 		if(nxt==text.npos) break;
 		pos=nxt+1;
@@ -30,7 +31,7 @@ void printHelp(std::string_view text)
 		 default: break;
 		}
 	}
-	SetConsoleTextAttribute(hout,COLOR_DEFAULT);
+	setTextAttr(TextAttr::plain|TextAttr::tg_stdout);
 }
 
 static constexpr char help_general[]=R"(
@@ -164,6 +165,8 @@ void main(const std::vector<const char*> &args)
 	 case strhash("checkers"):
 		text=help_checkers;
 		break;
+     case strhash("clean"):
+        text=help_clean;
 	 default:
 		quitError("Unknown help type '%s'.",type);
 	}

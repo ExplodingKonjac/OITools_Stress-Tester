@@ -1,5 +1,8 @@
 #pragma once
+
 #include "lib.hpp"
+#include <thread>
+#include <string>
 
 struct RunnerResult
 {

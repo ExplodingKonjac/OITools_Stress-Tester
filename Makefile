@@ -420,6 +420,30 @@ checkers/fast:
 	$(MAKE) $(MAKESILENT) -f checkers\CMakeFiles\checkers.dir\build.make checkers/CMakeFiles/checkers.dir/build
 .PHONY : checkers/fast
 
+src/base/runner.obj: src/base/runner.cpp.obj
+.PHONY : src/base/runner.obj
+
+# target to build an object file
+src/base/runner.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/base/runner.cpp.obj
+.PHONY : src/base/runner.cpp.obj
+
+src/base/runner.i: src/base/runner.cpp.i
+.PHONY : src/base/runner.i
+
+# target to preprocess a source file
+src/base/runner.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/base/runner.cpp.i
+.PHONY : src/base/runner.cpp.i
+
+src/base/runner.s: src/base/runner.cpp.s
+.PHONY : src/base/runner.s
+
+# target to generate assembly for a file
+src/base/runner.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/base/runner.cpp.s
+.PHONY : src/base/runner.cpp.s
+
 src/core/cleaner.obj: src/core/cleaner.cpp.obj
 .PHONY : src/core/cleaner.obj
 
@@ -572,6 +596,9 @@ help:
 	@echo ... chk-wcmp
 	@echo ... chk-yesno
 	@echo ... stress
+	@echo ... src/base/runner.obj
+	@echo ... src/base/runner.i
+	@echo ... src/base/runner.s
 	@echo ... src/core/cleaner.obj
 	@echo ... src/core/cleaner.i
 	@echo ... src/core/cleaner.s

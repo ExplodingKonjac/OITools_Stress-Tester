@@ -1,7 +1,6 @@
 #pragma once
 
 #include "options.h"
-#include <filesystem>
 
 namespace Cleaner
 {

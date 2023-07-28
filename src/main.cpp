@@ -15,10 +15,10 @@ int main(int argc,char *argv[])
 		Helper::main(vec);
 		break;
 	 case strhash("test"):
-	 	Tester::main(vec);
+		Tester::main(vec);
 		break;
 	 case strhash("clean"):
-	 	Cleaner::main(vec);
+		Cleaner::main(vec);
 		break;
 	 default:
 		quitError("Invalid usage. Use 'stress help' to get help.");

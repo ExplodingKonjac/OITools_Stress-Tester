@@ -1,9 +1,12 @@
 #pragma once
 #include <bits/stdc++.h>
+
+#ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
 #include <psapi.h>
 #include <conio.h>
+#endif
 
 enum class TextAttr: int
 {
@@ -38,15 +41,6 @@ inline TextAttr operator ~(TextAttr lhs)
 { return TextAttr(~static_cast<int>(lhs)); }
 #undef DEF_OP
 
-inline HANDLE hStdin()
-{ return GetStdHandle(STD_INPUT_HANDLE); }
-
-inline HANDLE hStdout()
-{ return GetStdHandle(STD_OUTPUT_HANDLE); }
-
-inline HANDLE hStderr()
-{ return GetStdHandle(STD_ERROR_HANDLE); }
-
 inline constexpr std::size_t operator ""_KB(std::size_t x)
 { return x<<10; }
 inline constexpr std::size_t operator ""_MB(std::size_t x)
@@ -59,72 +53,6 @@ inline constexpr std::size_t strhash(const char *s)
 	std::size_t res=0;
 	while(*s) res=res*139+*s,s++;
 	return res;
-}
-
-template<typename,typename=void>
-struct HasCb: std::false_type {};
-template<typename T>
-struct HasCb<T,std::void_t<decltype(T::cb)>>: std::true_type {};
-
-template<typename T>
-inline std::enable_if_t<HasCb<T>::value> initmem(T &x)
-{ ZeroMemory(&x,sizeof(x)),x.cb=sizeof(x); }
-
-template<typename T>
-inline std::enable_if_t<!HasCb<T>::value> initmem(T &x)
-{ ZeroMemory(&x,sizeof(x)); }
-
-inline HANDLE openFile(const std::string &s,char type)
-{
-	SECURITY_ATTRIBUTES sa{sizeof(sa),nullptr,true};
-	auto t1=(type=='r'?GENERIC_READ:GENERIC_WRITE);
-	auto t2=(type=='r'?OPEN_ALWAYS:CREATE_ALWAYS);
-	return CreateFile(s.c_str(),t1,FILE_SHARE_READ|FILE_SHARE_WRITE,&sa,t2,0,nullptr);
-}
-
-inline void resetFile(HANDLE file,bool clear=false)
-{
-	if(!file) return;
-	SetFilePointer(file,0,nullptr,FILE_BEGIN);
-	if(clear) SetEndOfFile(file);
-}
-
-inline std::string readFile(HANDLE file,DWORD size=INFINITE)
-{
-	constexpr DWORD BUF_SIZE=256;
-	char buf[BUF_SIZE];
-	std::string res;
-	while(size)
-	{
-		DWORD len,ret;
-		ret=ReadFile(file,buf,std::min(size,BUF_SIZE),&len,nullptr);
-		if(!ret || !len) break;
-		size-=len,res.append(buf,len);
-	}
-	return res;
-}
-
-inline std::string readPipe(HANDLE pipe,DWORD size=INFINITE)
-{
-	constexpr DWORD BUF_SIZE=256;
-	char buf[BUF_SIZE];
-	std::string res;
-	while(size)
-	{
-		DWORD len,ret;
-		PeekNamedPipe(pipe,nullptr,0,nullptr,&len,nullptr);
-		if(!len) break;
-		ret=ReadFile(pipe,buf,std::min(size,BUF_SIZE),&len,nullptr);
-		if(!ret || !len) break;
-		size-=len,res.append(buf,len);
-	}
-	return res;
-}
-
-inline bool writeFile(HANDLE file,const std::string &s)
-{
-	DWORD len;
-	return WriteFile(file,s.c_str(),s.size(),&len,nullptr);
 }
 
 template<typename ...Args>

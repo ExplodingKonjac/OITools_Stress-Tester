@@ -66,7 +66,7 @@ int checkResult(Runner *run,bool ignore_re=false)
 		printColor(TextAttr::fg_red,"%s Runtime Error (%u)\n",name,res.exit_code);
 		return 3;
 	 case RunnerResult::KILLED:
-		printColor(TextAttr::fg_purple,"Terminated\n");
+		printColor(TextAttr::fg_purple,"%s Terminated\n",name);
 		return -1;
 	 case RunnerResult::OK:
 		break;
@@ -77,7 +77,7 @@ int checkResult(Runner *run,bool ignore_re=false)
 void main(const std::vector<const char*> &args)
 {
 	if(args.size()>1)
-		printMessage("Redundant arguments ignored.");
+		printNote("Redundant arguments ignored.");
 	if(args.empty())
 		quitError("Missing testee code.");
 	opt.pro_name=args[0];
@@ -97,12 +97,8 @@ void main(const std::vector<const char*> &args)
 	chk_run->setErrorFile(opt.file+".log");
 
 	volatile bool force_quit=false;
-	std::mutex mut;
-	std::unique_lock<std::mutex> lk(mut);
-	std::condition_variable cv;
-
 	static std::function<void(int)> tryQuit;
-	static auto p_tryQuit=[](int signum){ tryQuit(signum); };
+	static auto p_tryQuit=[](int x){ tryQuit(x); };
 	tryQuit=[&](int signum)
 	{
 		force_quit=true;
@@ -110,18 +106,12 @@ void main(const std::vector<const char*> &args)
 		std_run->terminate();
 		gen_run->terminate();
 		chk_run->terminate();
-		cv.wait(lk);
-		std::string s;
-		std::fprintf(stderr,"Quit testing? (y/n): ");
-		std::getline(std::cin,s);
-		force_quit=(s=="y" || s=="Y");
-		cv.notify_all();
 		std::signal(SIGINT,p_tryQuit);
 	};
 	std::signal(SIGINT,p_tryQuit);
 
-	std::string chk_argu(opt.file+".in "+opt.file+".out "+opt.file+".ans");
-	for(SIZE_T id=0;id<opt.test_cnt;id++)
+	std::string chk_argu="\""+opt.file+".in\" \""+opt.file+"\".out \""+opt.file+".ans\"";
+	for(std::size_t id=0;id<opt.test_cnt;id++)
 	{
 		std::fprintf(stderr,"Testcase #%llu: ",id);
 
@@ -138,18 +128,9 @@ void main(const std::vector<const char*> &args)
 		chk_run->wait();
 		if(checkResult(chk_run,true)) goto bad;
 
-		if(false)
-		{
-			bad: if(force_quit)
-			{
-				cv.notify_all();
-				cv.wait(lk);
-				if(force_quit) break;
-			}
-			else break;
-		}
-
-		if(chk_run->getLastResult().type==RunnerResult::RE)
+		if(chk_run->getLastResult().type!=RunnerResult::RE)
+			printColor(TextAttr::fg_green|TextAttr::intensity,"Accepted\n");
+		else
 		{
 			std::ifstream inf(opt.file+".log");
 			std::vector<char> buf(256);
@@ -163,7 +144,18 @@ void main(const std::vector<const char*> &args)
 			MessageBox(nullptr,msg.c_str(),"Oops",MB_ICONERROR);
 			break;
 		}
-		printColor(TextAttr::fg_green|TextAttr::intensity,"Accepted\n");
+		if(false) // won't be executed unless...
+		{
+			bad: if(force_quit)
+			{
+				std::fprintf(stderr,"Quit testing? (y/n): ");
+				std::string s;
+				std::getline(std::cin,s);
+				if(s=="y" || s=="Y") break;
+				else force_quit=false;
+			}
+			else break;
+		}
 	}
 	delete gen_run;
 	delete pro_run;

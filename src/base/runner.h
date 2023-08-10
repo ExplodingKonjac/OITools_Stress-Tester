@@ -7,8 +7,6 @@
 #include <psapi.h>
 #endif
 
-namespace bp=boost::process;
-
 struct RunnerResult
 {
 	enum Types{ OK=1,TLE,MLE,RE,KILLED };

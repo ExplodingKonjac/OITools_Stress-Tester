@@ -27,7 +27,7 @@ const std::string &Runner::getName() { return name; }
 
 const RunnerResult &Runner::getLastResult() { return res; }
 
-bool Runner::running() { return proc.running(); }
+bool Runner::running() { return proc.valid() && proc.running(); }
 
 void Runner::start(const std::string &args)
 {
@@ -68,10 +68,10 @@ void Runner::start(const std::string &args)
 
 void Runner::terminate()
 {
-	if(!running()) return;
 	res.type=RunnerResult::KILLED;
-	proc.terminate();
-	watcher.join();
+	if(running() && proc.valid())
+		proc.terminate();
+	if(watcher.joinable()) watcher.join();
 }
 
 const RunnerResult &Runner::wait()
@@ -117,5 +117,7 @@ void Runner::watching()
 		else if(res.exit_code!=0) res.type=RunnerResult::RE;
 		else res.type=RunnerResult::OK;
 	}
+#elif defined(__unix__)
+	
 #endif
 }

@@ -1,12 +1,13 @@
 #include "tester.h"
 
+namespace bp=boost::process;
+namespace asio=boost::asio;
+
 namespace Tester
 {
 
 void compileFiles()
 {
-	namespace bp=boost::process;
-	namespace asio=boost::asio;
 	using Handler=std::function<void(const boost::system::error_code&,std::size_t)>;
 
 	std::ofstream fout("compile.log");
@@ -51,7 +52,7 @@ void compileFiles()
 
 int checkResult(Runner *run,bool ignore_re=false)
 {
-	auto &res=run->getLastResult();
+	auto &res=run->wait();
 	auto name=run->getName().c_str();
 	switch(res.type)
 	{
@@ -97,35 +98,28 @@ void main(const std::vector<const char*> &args)
 	chk_run->setErrorFile(opt.file+".log");
 
 	volatile bool force_quit=false;
-	static std::function<void(int)> tryQuit;
-	static auto p_tryQuit=[](int x){ tryQuit(x); };
-	tryQuit=[&](int signum)
+	static std::function<void()> tryQuit;
+	tryQuit=[&]
 	{
 		force_quit=true;
-		pro_run->terminate();
-		std_run->terminate();
-		gen_run->terminate();
-		chk_run->terminate();
-		std::signal(SIGINT,p_tryQuit);
+		for(auto &i: {pro_run,std_run,gen_run,chk_run})
+			i->terminate();
+		std::signal(SIGINT,[](int x){ tryQuit(); });
 	};
-	std::signal(SIGINT,p_tryQuit);
+	std::signal(SIGINT,[](int x){ tryQuit(); });
 
 	std::string chk_argu="\""+opt.file+".in\" \""+opt.file+"\".out \""+opt.file+".ans\"";
-	for(std::size_t id=0;id<opt.test_cnt;id++)
+	for(std::size_t id=1;id<=opt.test_cnt;id++)
 	{
 		std::fprintf(stderr,"Testcase #%llu: ",id);
 
 		gen_run->start();
-		gen_run->wait();
 		if(checkResult(gen_run)) goto bad;
 		pro_run->start();
 		std_run->start();
-		pro_run->wait();
 		if(checkResult(pro_run)) goto bad;
-		std_run->wait();
 		if(checkResult(std_run)) goto bad;
 		chk_run->start(chk_argu);
-		chk_run->wait();
 		if(checkResult(chk_run,true)) goto bad;
 
 		if(chk_run->getLastResult().type!=RunnerResult::RE)
@@ -144,7 +138,7 @@ void main(const std::vector<const char*> &args)
 			MessageBox(nullptr,msg.c_str(),"Oops",MB_ICONERROR);
 			break;
 		}
-		if(false) // won't be executed unless...
+		if(force_quit) // could be also enterd by goto
 		{
 			bad: if(force_quit)
 			{

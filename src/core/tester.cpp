@@ -127,15 +127,25 @@ void main(const std::vector<const char*> &args)
 		else
 		{
 			std::ifstream inf(opt.file+".log");
-			std::vector<char> buf(256);
-			inf.read(buf.data(),buf.size());
-			auto siz=inf.gcount();
-			std::string msg(buf.data(),buf.data()+siz);
-			if(siz==256) msg+="...";
+			std::string msg(256,0);
+			inf.read(msg.data(),msg.size());
+			msg.resize(inf.gcount());
+			if(msg.size()==256) msg+="...";
 			msg="Failed on testcase #"+std::to_string(id)+" (256 bytes only):\n"+msg+'\n'+
 				"See "+opt.file+".log for detail.";
 			printColor(TextAttr::fg_red|TextAttr::intensity,"Wrong Answer\n");
+#if defined(_WIN32)
 			MessageBox(nullptr,msg.c_str(),"Oops",MB_ICONERROR);
+#elif defined(__linux__)
+			std::string::size_type pos=0;
+			while(true)
+			{
+				pos=msg.find('\n',pos+1);
+				if(pos==msg.npos) break;
+				msg.replace(pos,1,"\\n");
+			}
+			std::system("zenity --error --text=\""+msg+"\"");
+#endif
 			break;
 		}
 		if(force_quit) // could be also enterd by goto

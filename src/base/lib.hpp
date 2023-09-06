@@ -41,11 +41,11 @@ inline TextAttr operator ~(TextAttr lhs)
 { return TextAttr(~static_cast<int>(lhs)); }
 #undef DEF_OP
 
-inline constexpr std::size_t operator ""_KB(std::size_t x)
+inline constexpr auto operator ""_KB(unsigned long long x)
 { return x<<10; }
-inline constexpr std::size_t operator ""_MB(std::size_t x)
+inline constexpr auto operator ""_MB(unsigned long long x)
 { return x<<20; }
-inline constexpr std::size_t operator ""_GB(std::size_t x)
+inline constexpr auto operator ""_GB(unsigned long long x)
 { return x<<30; }
 
 inline constexpr std::size_t strhash(const char *s)
@@ -85,7 +85,7 @@ inline void setTextAttr(TextAttr attr,FILE *tg=stderr)
 	else
 		h=GetStdHandle(STD_ERROR_HANDLE);
 	SetConsoleTextAttribute(h,mask);
-#elif defined(__unix__)
+#elif defined(__linux__)
 	std::vector<int> vec;
 	if((S&0x1ffff)==0)
 		vec.push_back(0);

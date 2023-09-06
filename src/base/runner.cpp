@@ -33,6 +33,7 @@ void Runner::start(const std::string &args)
 {
 	if(running())
 		throw std::runtime_error("start process while running.");
+	FILE *inf=nullptr,*ouf=nullptr,*erf=nullptr;
 #define FW_ARGS std::forward<decltype(args)>(args)...
 	auto createChild=[&](auto &&...args)
 	{
@@ -42,19 +43,19 @@ void Runner::start(const std::string &args)
 	{
 		if(fin=="__std__") f(FW_ARGS,bp::std_in<stdin);
 		else if(fin=="__nul__") f(FW_ARGS,bp::std_in<bp::null);
-		else f(FW_ARGS,bp::std_in<fin);
+		else inf=std::fopen(fin.c_str(),"r"),f(FW_ARGS,bp::std_in<inf);
 	};
 	auto redirectOutput=[&](auto &f,auto &&...args)
 	{
 		if(fout=="__std__") f(FW_ARGS,bp::std_out>stdout);
 		else if(fout=="__nul__") f(FW_ARGS,bp::std_out>bp::null);
-		else f(FW_ARGS,bp::std_out>fout);
+		else ouf=std::fopen(fout.c_str(),"w"),f(FW_ARGS,bp::std_out>ouf);
 	};
 	auto redirectError=[&](auto &f,auto &&...args)
 	{
 		if(ferr=="__std__") f(FW_ARGS,bp::std_err>stderr);
 		else if(ferr=="__nul__") f(FW_ARGS,bp::std_err>bp::null);
-		else f(FW_ARGS,bp::std_out>ferr);
+		else erf=std::fopen(ferr.c_str(),"w"),f(FW_ARGS,bp::std_err>erf);
 	};
 #undef FW_ARGS
 	res.type=static_cast<RunnerResult::Types>(0);
@@ -63,7 +64,7 @@ void Runner::start(const std::string &args)
 				redirectError,
 				createChild,
 				app+" "+args);
-	watcher=std::thread(watching,this);
+	watcher=std::thread(watching,this,inf,ouf,erf);
 }
 
 void Runner::terminate()
@@ -81,7 +82,7 @@ const RunnerResult &Runner::wait()
 	return res;
 }
 
-void Runner::watching()
+void Runner::watching(FILE *inf,FILE *ouf,FILE *erf)
 {
 	[[maybe_unused]] auto pid=proc.id();
 	auto handle=proc.native_handle();
@@ -120,4 +121,7 @@ void Runner::watching()
 #elif defined(__unix__)
 	
 #endif
+	if(inf) fclose(inf);
+	if(ouf) fclose(ouf);
+	if(erf) fclose(erf);
 }

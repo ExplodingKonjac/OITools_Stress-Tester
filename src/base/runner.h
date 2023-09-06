@@ -27,7 +27,7 @@ class Runner
 	std::thread watcher;
 	RunnerResult res;
 
-	void watching();
+	void watching(FILE *inf,FILE *ouf,FILE *erf);
 
  public:
 	Runner(const std::string &_name,const std::string &_app,std::size_t _tl,std::size_t _ml);

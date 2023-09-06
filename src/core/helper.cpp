@@ -88,10 +88,10 @@ About generator:
 
 About checker:
     Checker code is recommended to be written with testlib.h. See
-    <https://github.com/MikeMirzayanov/testlib/> for detail of
-    testli. Otherwise you should make your checker be able to
-    run in the format './chk $INPUT_FILE$ $OUTPUT_FILE$ $ANSWER_FILE$', and
-    return 0 when the answer is accepted and non-zero otherwise.
+    <https://github.com/MikeMirzayanov/testlib/> for details of
+    testlib.h. Otherwise you should make your checker be able to
+    run in the format './chk $INPUT_FILE$ $OUTPUT_FILE$ $ANSWER_FILE$',
+    and return 0 when the answer is accepted and non-zero otherwise.
     STDERR of the checker will be redirected into $FILE$.log.
 )",
 help_clean[]=R"(

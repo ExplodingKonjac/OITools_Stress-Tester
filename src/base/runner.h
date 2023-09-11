@@ -2,9 +2,11 @@
 
 #include <bits/stdc++.h>
 #include <boost/process.hpp>
-#ifdef _WIN32
+#if defined(_WIN32)
 #include <windows.h>
 #include <psapi.h>
+#elif defined(__linux__)
+#include <sys/wait.h>
 #endif
 
 struct RunnerResult

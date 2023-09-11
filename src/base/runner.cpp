@@ -118,7 +118,7 @@ void Runner::watching(FILE *inf,FILE *ouf,FILE *erf)
 		else if(res.exit_code!=0) res.type=RunnerResult::RE;
 		else res.type=RunnerResult::OK;
 	}
-#elif defined(__unix__)
+#elif defined(__linux__)
 	
 #endif
 	if(inf) fclose(inf);

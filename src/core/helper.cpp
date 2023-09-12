@@ -56,7 +56,7 @@ The following options are available:
     -c $CHK$, --chk=$CHK$
         Set the checker code as $CHK$.cpp;
     -T $TL$, --time-limit=$TL$
-        Set the time limit for testee code as $TL$ ms;
+        Set the time limit for testee code as $TL$ms;
     -M $ML$, --memory-limit=$ML$
         Set the memory limit for testee code as $ML$Mb;
     --tl-gen=$TL$

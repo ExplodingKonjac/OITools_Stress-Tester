@@ -39,6 +39,8 @@ class Runner
 	void setErrorFile(const std::string &file);
 	const std::string &getName();
 	const RunnerResult &getLastResult();
+	std::size_t getTimeLimit();
+	std::size_t getMemoryLimit();
 	bool running();
 	void start(const std::string &args="");
 	void terminate();

@@ -92,18 +92,12 @@ inline void setTextAttr(TextAttr attr,FILE *tg=stderr)
 	if(S&(1<<16))
 		vec.push_back(1);
 	if(S&0x00ff)
-	{
-		int k=__builtin_ctz(S&0x00ff);
-		vec.push_back(k+30);
-	}
+		vec.push_back(__builtin_ctz(S&0x00ff)+30);
 	if(S&0xff00)
-	{
-		int k=__builtin_ctz(S&0xff00)-8;
-		vec.push_back(k+40);
-	}
+		vec.push_back(__builtin_ctz(S&0xff00)-8+40);
 	std::string str("\e[");
 	for(auto i: vec)
-		str.append(std::to_string(i));
+		str.append(std::to_string(i)),str.push_back(';');
 	str.back()='m';
 	std::fputs(str.c_str(),tg);
 #else

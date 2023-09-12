@@ -22,8 +22,7 @@ void compileFiles()
 			ios,
 			bp::on_exit=[&](auto...){ ap.close(); }
 		);
-		std::string msg;
-		std::vector<char> buf(512);
+		std::string msg,buf(512,0);
 		Handler func=[&](auto ec,auto siz)
 		{
 			msg.append(buf.data(),siz);
@@ -57,10 +56,12 @@ int checkResult(Runner *run,bool ignore_re=false)
 	switch(res.type)
 	{
 	 case RunnerResult::TLE:
-		printColor(TextAttr::fg_yellow,"%s Time Limit Exceeded\n",name);
+		printColor(TextAttr::fg_yellow,"%s Time Limit Exceeded",name);
+		printColor(TextAttr::fg_yellow," (%zums/%zums)\n",res.time_used,run->getTimeLimit());
 		return 1;
 	 case RunnerResult::MLE:
-	 	printColor(TextAttr::fg_yellow,"%s Memory Limit Exceeded\n",name);
+	 	printColor(TextAttr::fg_yellow,"%s Memory Limit Exceeded",name);
+		printColor(TextAttr::fg_yellow," (%.2lfMB/%.2lfMB)\n",res.memory_used/1024.0/1024.0,run->getMemoryLimit()/1024.0/1024.0);
 		return 2;
 	 case RunnerResult::RE:
 		if(ignore_re) break;
@@ -102,9 +103,10 @@ void main(const std::vector<const char*> &args)
 	tryQuit=[&]
 	{
 		force_quit=true;
-		for(auto &i: {pro_run,std_run,gen_run,chk_run})
-			i->terminate();
-		std::signal(SIGINT,[](int x){ tryQuit(); });
+		pro_run->terminate();
+		std_run->terminate();
+		gen_run->terminate();
+		chk_run->terminate();
 	};
 	std::signal(SIGINT,[](int x){ tryQuit(); });
 
@@ -156,7 +158,8 @@ void main(const std::vector<const char*> &args)
 				std::string s;
 				std::getline(std::cin,s);
 				if(s=="y" || s=="Y") break;
-				else force_quit=false;
+				force_quit=false;
+				std::signal(SIGINT,[](int x){ tryQuit(); });
 			}
 			else break;
 		}

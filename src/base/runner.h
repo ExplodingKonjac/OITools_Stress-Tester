@@ -24,7 +24,7 @@ class Runner
  private:
 	std::string name,app;
 	std::size_t tl,ml;
-	std::string fin,fout,ferr;
+	std::string fn_in,fn_out,fn_err;
 	boost::process::child proc;
 	std::thread watcher;
 	RunnerResult res;

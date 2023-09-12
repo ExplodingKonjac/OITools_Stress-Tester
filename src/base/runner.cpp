@@ -12,16 +12,16 @@ RunnerResult::RunnerResult(Types _tp,unsigned _e,std::size_t _t,std::size_t _m):
 
 Runner::Runner(const std::string &_name,const std::string &_app,std::size_t _tl,std::size_t _ml):
 	name(_name),app(_app),tl(_tl),ml(_ml),
-	fin("__nul__"),fout("__nul__"),ferr("__nul__"),
+	fn_in("__nul__"),fn_out("__nul__"),fn_err("__nul__"),
 	proc(),watcher(),res()
 {}
 Runner::~Runner() { terminate(); }
 
-void Runner::setInputFile(const std::string &file) { fin=file; }
+void Runner::setInputFile(const std::string &file) { fn_in=file; }
 
-void Runner::setOutputFile(const std::string &file) { fout=file; }
+void Runner::setOutputFile(const std::string &file) { fn_out=file; }
 
-void Runner::setErrorFile(const std::string &file) { ferr=file; }
+void Runner::setErrorFile(const std::string &file) { fn_err=file; }
 
 const std::string &Runner::getName() { return name; }
 
@@ -33,45 +33,18 @@ void Runner::start(const std::string &args)
 {
 	if(running())
 		throw std::runtime_error("start process while running.");
-	FILE *inf=nullptr,*ouf=nullptr,*erf=nullptr;
-#define FW_ARGS std::forward<decltype(args)>(args)...
-	auto createChild=[&](auto &&...args)
-	{
-		proc=bp::child(FW_ARGS);
-	};
-	auto redirectInput=[&](auto &f,auto &&...args)
-	{
-		if(fin=="__std__") f(FW_ARGS,bp::std_in<stdin);
-		else if(fin=="__nul__") f(FW_ARGS,bp::std_in<bp::null);
-		else inf=std::fopen(fin.c_str(),"r"),f(FW_ARGS,bp::std_in<inf);
-	};
-	auto redirectOutput=[&](auto &f,auto &&...args)
-	{
-		if(fout=="__std__") f(FW_ARGS,bp::std_out>stdout);
-		else if(fout=="__nul__") f(FW_ARGS,bp::std_out>bp::null);
-		else ouf=std::fopen(fout.c_str(),"w"),f(FW_ARGS,bp::std_out>ouf);
-	};
-	auto redirectError=[&](auto &f,auto &&...args)
-	{
-		if(ferr=="__std__") f(FW_ARGS,bp::std_err>stderr);
-		else if(ferr=="__nul__") f(FW_ARGS,bp::std_err>bp::null);
-		else erf=std::fopen(ferr.c_str(),"w"),f(FW_ARGS,bp::std_err>erf);
-	};
-#undef FW_ARGS
+	FILE *fp_in=(fn_in=="__std__"?stdin:fn_in=="__nul__"?nullptr:std::fopen(fn_in.c_str(),"r")),
+		 *fp_out=(fn_out=="__std__"?stdout:fn_out=="__nul__"?nullptr:std::fopen(fn_out.c_str(),"w")),
+		 *fp_err=(fn_err=="__std__"?stderr:fn_err=="__nul__"?nullptr:std::fopen(fn_err.c_str(),"w"));
 	res.type=static_cast<RunnerResult::Types>(0);
-	std::invoke(redirectInput,
-				redirectOutput,
-				redirectError,
-				createChild,
-				app+" "+args);
-	watcher=std::thread(watching,this,inf,ouf,erf);
+	proc=bp::child(app+" "+args,bp::std_in<fp_in,bp::std_out>fp_out,bp::std_err>fp_err);
+	watcher=std::thread(watching,this,fp_in,fp_out,fp_err);
 }
 
 void Runner::terminate()
 {
 	res.type=RunnerResult::KILLED;
-	if(running() && proc.valid())
-		proc.terminate();
+	if(running()) proc.terminate();
 	if(watcher.joinable()) watcher.join();
 }
 
@@ -82,7 +55,7 @@ const RunnerResult &Runner::wait()
 	return res;
 }
 
-void Runner::watching(FILE *inf,FILE *ouf,FILE *erf)
+void Runner::watching(FILE *fp_in,FILE *fp_out,FILE *fp_err)
 {
 	[[maybe_unused]] auto pid=proc.id();
 	auto handle=proc.native_handle();
@@ -121,7 +94,7 @@ void Runner::watching(FILE *inf,FILE *ouf,FILE *erf)
 #elif defined(__linux__)
 	
 #endif
-	if(inf) fclose(inf);
-	if(ouf) fclose(ouf);
-	if(erf) fclose(erf);
+	if(fp_in && fp_in!=stdin) fclose(fp_in);
+	if(fp_out && fp_out!=stdout) fclose(fp_out);
+	if(fp_err && fp_err!=stderr) fclose(fp_err);
 }

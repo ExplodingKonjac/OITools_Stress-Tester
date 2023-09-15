@@ -1,8 +1,8 @@
-# Install script for directory: D:/WangCJ/Codes/Dev Codes/Stress Tester/checkers
+# Install script for directory: D:/WangCJ/Codes/Dev Codes/OITools/Stress-Tester/checkers
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/Stress Tester")
+  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/OITools::Stress-Tester")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 

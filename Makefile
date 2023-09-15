@@ -56,10 +56,10 @@ RM = D:\Programs\mingw64\bin\cmake.exe -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = "D:\WangCJ\Codes\Dev Codes\Stress Tester"
+CMAKE_SOURCE_DIR = "D:\WangCJ\Codes\Dev Codes\OITools\Stress-Tester"
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = "D:\WangCJ\Codes\Dev Codes\Stress Tester"
+CMAKE_BINARY_DIR = "D:\WangCJ\Codes\Dev Codes\OITools\Stress-Tester"
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -84,56 +84,11 @@ rebuild_cache:
 rebuild_cache/fast: rebuild_cache
 .PHONY : rebuild_cache/fast
 
-# Special rule for the target list_install_components
-list_install_components:
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Available install components are: \"Unspecified\""
-.PHONY : list_install_components
-
-# Special rule for the target list_install_components
-list_install_components/fast: list_install_components
-.PHONY : list_install_components/fast
-
-# Special rule for the target install
-install: preinstall
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Install the project..."
-	D:\Programs\mingw64\bin\cmake.exe -P cmake_install.cmake
-.PHONY : install
-
-# Special rule for the target install
-install/fast: preinstall/fast
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Install the project..."
-	D:\Programs\mingw64\bin\cmake.exe -P cmake_install.cmake
-.PHONY : install/fast
-
-# Special rule for the target install/local
-install/local: preinstall
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing only the local directory..."
-	D:\Programs\mingw64\bin\cmake.exe -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
-.PHONY : install/local
-
-# Special rule for the target install/local
-install/local/fast: preinstall/fast
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing only the local directory..."
-	D:\Programs\mingw64\bin\cmake.exe -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
-.PHONY : install/local/fast
-
-# Special rule for the target install/strip
-install/strip: preinstall
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing the project stripped..."
-	D:\Programs\mingw64\bin\cmake.exe -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
-.PHONY : install/strip
-
-# Special rule for the target install/strip
-install/strip/fast: preinstall/fast
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Installing the project stripped..."
-	D:\Programs\mingw64\bin\cmake.exe -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
-.PHONY : install/strip/fast
-
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start "D:\WangCJ\Codes\Dev Codes\Stress Tester\CMakeFiles" "D:\WangCJ\Codes\Dev Codes\Stress Tester\\CMakeFiles\progress.marks"
+	$(CMAKE_COMMAND) -E cmake_progress_start "D:\WangCJ\Codes\Dev Codes\OITools\Stress-Tester\CMakeFiles" "D:\WangCJ\Codes\Dev Codes\OITools\Stress-Tester\\CMakeFiles\progress.marks"
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start "D:\WangCJ\Codes\Dev Codes\Stress Tester\CMakeFiles" 0
+	$(CMAKE_COMMAND) -E cmake_progress_start "D:\WangCJ\Codes\Dev Codes\OITools\Stress-Tester\CMakeFiles" 0
 .PHONY : all
 
 # The main clean target
@@ -161,17 +116,17 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named stress
+# Target rules for targets named oit-stress
 
 # Build rule for target.
-stress: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 stress
-.PHONY : stress
+oit-stress: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 oit-stress
+.PHONY : oit-stress
 
 # fast build rule for target.
-stress/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/build
-.PHONY : stress/fast
+oit-stress/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/build
+.PHONY : oit-stress/fast
 
 #=============================================================================
 # Target rules for targets named chk-caseicmp
@@ -425,7 +380,7 @@ src/base/runner.obj: src/base/runner.cpp.obj
 
 # target to build an object file
 src/base/runner.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/base/runner.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/base/runner.cpp.obj
 .PHONY : src/base/runner.cpp.obj
 
 src/base/runner.i: src/base/runner.cpp.i
@@ -433,7 +388,7 @@ src/base/runner.i: src/base/runner.cpp.i
 
 # target to preprocess a source file
 src/base/runner.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/base/runner.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/base/runner.cpp.i
 .PHONY : src/base/runner.cpp.i
 
 src/base/runner.s: src/base/runner.cpp.s
@@ -441,7 +396,7 @@ src/base/runner.s: src/base/runner.cpp.s
 
 # target to generate assembly for a file
 src/base/runner.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/base/runner.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/base/runner.cpp.s
 .PHONY : src/base/runner.cpp.s
 
 src/core/cleaner.obj: src/core/cleaner.cpp.obj
@@ -449,7 +404,7 @@ src/core/cleaner.obj: src/core/cleaner.cpp.obj
 
 # target to build an object file
 src/core/cleaner.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/core/cleaner.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/core/cleaner.cpp.obj
 .PHONY : src/core/cleaner.cpp.obj
 
 src/core/cleaner.i: src/core/cleaner.cpp.i
@@ -457,7 +412,7 @@ src/core/cleaner.i: src/core/cleaner.cpp.i
 
 # target to preprocess a source file
 src/core/cleaner.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/core/cleaner.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/core/cleaner.cpp.i
 .PHONY : src/core/cleaner.cpp.i
 
 src/core/cleaner.s: src/core/cleaner.cpp.s
@@ -465,7 +420,7 @@ src/core/cleaner.s: src/core/cleaner.cpp.s
 
 # target to generate assembly for a file
 src/core/cleaner.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/core/cleaner.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/core/cleaner.cpp.s
 .PHONY : src/core/cleaner.cpp.s
 
 src/core/helper.obj: src/core/helper.cpp.obj
@@ -473,7 +428,7 @@ src/core/helper.obj: src/core/helper.cpp.obj
 
 # target to build an object file
 src/core/helper.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/core/helper.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/core/helper.cpp.obj
 .PHONY : src/core/helper.cpp.obj
 
 src/core/helper.i: src/core/helper.cpp.i
@@ -481,7 +436,7 @@ src/core/helper.i: src/core/helper.cpp.i
 
 # target to preprocess a source file
 src/core/helper.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/core/helper.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/core/helper.cpp.i
 .PHONY : src/core/helper.cpp.i
 
 src/core/helper.s: src/core/helper.cpp.s
@@ -489,7 +444,7 @@ src/core/helper.s: src/core/helper.cpp.s
 
 # target to generate assembly for a file
 src/core/helper.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/core/helper.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/core/helper.cpp.s
 .PHONY : src/core/helper.cpp.s
 
 src/core/options.obj: src/core/options.cpp.obj
@@ -497,7 +452,7 @@ src/core/options.obj: src/core/options.cpp.obj
 
 # target to build an object file
 src/core/options.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/core/options.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/core/options.cpp.obj
 .PHONY : src/core/options.cpp.obj
 
 src/core/options.i: src/core/options.cpp.i
@@ -505,7 +460,7 @@ src/core/options.i: src/core/options.cpp.i
 
 # target to preprocess a source file
 src/core/options.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/core/options.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/core/options.cpp.i
 .PHONY : src/core/options.cpp.i
 
 src/core/options.s: src/core/options.cpp.s
@@ -513,7 +468,7 @@ src/core/options.s: src/core/options.cpp.s
 
 # target to generate assembly for a file
 src/core/options.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/core/options.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/core/options.cpp.s
 .PHONY : src/core/options.cpp.s
 
 src/core/tester.obj: src/core/tester.cpp.obj
@@ -521,7 +476,7 @@ src/core/tester.obj: src/core/tester.cpp.obj
 
 # target to build an object file
 src/core/tester.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/core/tester.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/core/tester.cpp.obj
 .PHONY : src/core/tester.cpp.obj
 
 src/core/tester.i: src/core/tester.cpp.i
@@ -529,7 +484,7 @@ src/core/tester.i: src/core/tester.cpp.i
 
 # target to preprocess a source file
 src/core/tester.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/core/tester.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/core/tester.cpp.i
 .PHONY : src/core/tester.cpp.i
 
 src/core/tester.s: src/core/tester.cpp.s
@@ -537,7 +492,7 @@ src/core/tester.s: src/core/tester.cpp.s
 
 # target to generate assembly for a file
 src/core/tester.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/core/tester.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/core/tester.cpp.s
 .PHONY : src/core/tester.cpp.s
 
 src/main.obj: src/main.cpp.obj
@@ -545,7 +500,7 @@ src/main.obj: src/main.cpp.obj
 
 # target to build an object file
 src/main.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/main.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/main.cpp.obj
 .PHONY : src/main.cpp.obj
 
 src/main.i: src/main.cpp.i
@@ -553,7 +508,7 @@ src/main.i: src/main.cpp.i
 
 # target to preprocess a source file
 src/main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/main.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/main.cpp.i
 .PHONY : src/main.cpp.i
 
 src/main.s: src/main.cpp.s
@@ -561,7 +516,7 @@ src/main.s: src/main.cpp.s
 
 # target to generate assembly for a file
 src/main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\stress.dir\build.make CMakeFiles/stress.dir/src/main.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\oit-stress.dir\build.make CMakeFiles/oit-stress.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
 # Help Target
@@ -571,10 +526,6 @@ help:
 	@echo ... clean
 	@echo ... depend
 	@echo ... edit_cache
-	@echo ... install
-	@echo ... install/local
-	@echo ... install/strip
-	@echo ... list_install_components
 	@echo ... rebuild_cache
 	@echo ... checkers
 	@echo ... chk-caseicmp
@@ -595,7 +546,7 @@ help:
 	@echo ... chk-uncmp
 	@echo ... chk-wcmp
 	@echo ... chk-yesno
-	@echo ... stress
+	@echo ... oit-stress
 	@echo ... src/base/runner.obj
 	@echo ... src/base/runner.i
 	@echo ... src/base/runner.s

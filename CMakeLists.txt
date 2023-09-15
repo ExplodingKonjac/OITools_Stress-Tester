@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.26)
-project("Stress Tester")
+project("OITools::Stress-Tester")
 
 # settings
 set(CXX_STANDARD 17)
@@ -28,11 +28,8 @@ add_subdirectory(checkers/ EXCLUDE_FROM_ALL)
 aux_source_directory(src/core/ core_src_list)
 aux_source_directory(src/base/ base_src_list)
 include_directories(src/base/)
-add_executable(stress src/main.cpp ${core_src_list} ${base_src_list})
-target_link_libraries(stress ${Boost_LIBRARIES})
+add_executable(oit-stress src/main.cpp ${core_src_list} ${base_src_list})
+target_link_libraries(oit-stress ${Boost_LIBRARIES})
 if(WIN32)
-	target_link_libraries(stress wsock32 ws2_32)
+	target_link_libraries(oit-stress wsock32 ws2_32)
 endif()
-
-# installing
-install(TARGETS stress DESTINATION .)

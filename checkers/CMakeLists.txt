@@ -1,4 +1,4 @@
-project("StressTester_Checkers")
+project("OITools::Stress-Tester::Checkers")
 
 aux_source_directory(. src_list)
 set(exe_list)

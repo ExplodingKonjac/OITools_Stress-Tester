@@ -10,3 +10,4 @@ endforeach()
 
 add_custom_target(checkers)
 add_dependencies(checkers ${exe_list})
+set(checkers_exe_list ${exe_list} PARENT_SCOPE)

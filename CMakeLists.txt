@@ -22,7 +22,8 @@ endif()
 find_package(Boost COMPONENTS filesystem REQUIRED)
 
 # checkers
-add_subdirectory(checkers/ EXCLUDE_FROM_ALL)
+set(checkers_exe_list)
+add_subdirectory(checkers/)
 
 # main
 aux_source_directory(src/core/ core_src_list)
@@ -33,3 +34,7 @@ target_link_libraries(oit-stress ${Boost_LIBRARIES})
 if(WIN32)
 	target_link_libraries(oit-stress wsock32 ws2_32)
 endif()
+
+# installing
+install(TARGETS oit-stress ${checkers_exe_list} RUNTIME DESTINATION bin/)
+install(FILES LICENSE DESTINATION .)

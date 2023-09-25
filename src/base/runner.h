@@ -1,7 +1,11 @@
 #pragma once
 
-#include <bits/stdc++.h>
+#include <string>
+#include <thread>
+#include <chrono>
+#include <cstdio>
 #include <boost/process.hpp>
+
 #if defined(_WIN32)
 #include <windows.h>
 #include <psapi.h>
@@ -37,10 +41,16 @@ class Runner
 	void setInputFile(const std::string &file);
 	void setOutputFile(const std::string &file);
 	void setErrorFile(const std::string &file);
-	const std::string &getName();
-	const RunnerResult &getLastResult();
-	std::size_t getTimeLimit();
-	std::size_t getMemoryLimit();
+	void setName(const std::string &name);
+	void setTimeLimit(std::size_t tl);
+	void setMemoryLimit(std::size_t ml);
+	const std::string &getInputFile()const;
+	const std::string &getOutputFile()const;
+	const std::string &getErrorFile()const;
+	const std::string &getName()const;
+	std::size_t getTimeLimit()const;
+	std::size_t getMemoryLimit()const;
+	const RunnerResult &getLastResult()const;
 	bool running();
 	void start(const std::string &args="");
 	void terminate();

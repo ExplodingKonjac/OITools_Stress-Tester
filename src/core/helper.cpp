@@ -34,117 +34,117 @@ void printHelp(std::string_view text)
 	setTextAttr(TextAttr::plain|TextAttr::tg_stdout);
 }
 
-static constexpr char help_general[]=R"(
-Usage: stress $MODULE_NAME$ [$MODULE_ARGUMENTS$]... [$OPTIONS$]...
-
-$MODULE_NAME$ can be @help@|@test@|@clean@.
-
-run the following command to get further help:
-    stress help [@general@|@test@|@clean@|@checkers@]
-)",
-help_test[]=R"(
-Usage: stress test $NAME$ [$OPTIONS$]...
-Do testing for $NAME$.cpp.
-
-The following options are available:
-    -f $FILE$, --file=$FILE$
-        Set the name of file produced as $FILE$.in/out/ans/log;
-    -s $STD$, --std=$STD$
-        Set the standard code as $STD$.cpp;
-    -g $GEN$, --gen=$GEN$
-        Set the generator code as $GEN$.cpp;
-    -c $CHK$, --chk=$CHK$
-        Set the checker code as $CHK$.cpp;
-    -T $TL$, --time-limit=$TL$
-        Set the time limit for testee code as $TL$ms;
-    -M $ML$, --memory-limit=$ML$
-        Set the memory limit for testee code as $ML$Mb;
-    --tl-gen=$TL$
-        Set the memory limit for generator as $TL$ms;
-    --ml-gen=$ML$
-        Set the memory limit for generator as $ML$Mb;
-    --tl-chk=$TL$
-        Set the memory limit for checker as $TL$ms;
-    --ml-chk=$ML$
-        Set the memory limit for checker as $ML$Mb;
-    --compile-opt=$OPT$
-        Set the compile options for testee code and standard code;
-    --count=$NUMBER$|@infinite@
-        Set the count of tests as $NUMBER$ (or infinite);
-    --compile-gen[=@true@|@false@]
-        Whether to compile generator, true if no argument provided;
-    --compile-chk[=@true@|@false@]
-        Whether to compile checker, true if no argument provided;
-
-About testee/standard:
-    STDIN of testee/standard will be redirected from $FILE$.in.
-    STDOUT of testee will be redirected into $FILE$.out and STDOUT
-    of standard will be redirected into $FILE$.ans. Reading/Writing
-    data directly from/into $FILE$.in/out/ans is OK too.
-
-About generator:
-    STDOUT of the generator will be redirect to $FILE$.in. Writing
-    the data directly into $FILE$.in is OK too.
-
-About checker:
-    Checker code is recommended to be written with testlib.h. See
-    <https://github.com/MikeMirzayanov/testlib/> for details of
-    testlib.h. Otherwise you should make your checker be able to
-    run in the format './chk $INPUT_FILE$ $OUTPUT_FILE$ $ANSWER_FILE$',
-    and return 0 when the answer is accepted and non-zero otherwise.
-    STDERR of the checker will be redirected into $FILE$.log.
-)",
-help_clean[]=R"(
-Usage: stress clean [$OPTIONS$]...
-Clean the file produced during testing.
-
-The following options are available:
-    -f $FILE$, --file=$FILE$
-        $FILE$.in/out/ans/log will be cleaned.
-)",
-help_checkers[]=R"(
-Here are all built-in checkers and you should add them into PATH:
-
-    chk-caseicmp
-        Compare single `int64` with testcases.
-    chk-casencmp
-        Compare `int64`s with testcases.
-    chk-casewcmp
-        Compare tokens with testcases.
-    chk-dcmp
-        Compare `double`s (1e-6 relative).
-    chk-fcmp
-        Compare lines.
-    chk-hcmp    
-        Compare signed huge integers.
-    chk-icmp    
-        Compare single `int`.
-    chk-lcmp
-        Compare single `long int`.
-    chk-ncmp
-        Compare `long long`s.
-    chk-nyesno
-        Compare YES/NOs (case insensitive).
-    chk-rcmp
-        Compare single `double` (1.5e-6 absolute).
-    chk-rcmp4
-        Compare `double`s (1e-4 relative).
-    chk-rcmp6
-        Compare `double`s (1e-6 relative).
-    chk-rcmp9
-        Compare `double`s (1e-9 relative).
-    chk-rncmp
-        Compare `double`s (1.5e-5 absolute).
-    chk-uncmp
-        Compare unordered `long long`s.
-    chk-wcmp
-        Compare tokens.
-    chk-yesno
-        Compare single YES/NO (case insensitive).
-
-See <https://github.com/MikeMirzayanov/testlib/tree/master/checkers>
-for detail of these checkers.
-)";
+static constexpr char help_general[]=
+	"Usage: stress $MODULE_NAME$ [$MODULE_ARGUMENTS$]... [$OPTIONS$]..."
+	""
+	"$MODULE_NAME$ can be @help@|@test@|@clean@."
+	""
+	"run the following command to get further help:"
+	"  oit-stress help [@general@|@test@|@clean@|@checkers@]"
+	"",
+help_test[]=
+	"Usage: stress test $NAME$ [$OPTIONS$]...\n"
+	"Do testing for $NAME$.cpp.\n"
+	"\n"
+	"The following options are available:\n"
+	"  -f $FILE$, --file=$FILE$\n"
+	"    Set the name of file produced as $FILE$.in/out/ans/log;\n"
+	"  -s $STD$, --std=$STD$\n"
+	"    Set the standard code as $STD$.cpp;\n"
+	"  -g $GEN$, --gen=$GEN$\n"
+	"    Set the generator code as $GEN$.cpp;\n"
+	"  -c $CHK$, --chk=$CHK$\n"
+	"    Set the checker code as $CHK$.cpp;\n"
+	"  -T $TL$, --time-limit=$TL$\n"
+	"    Set the time limit for testee code as $TL$ms;\n"
+	"  -M $ML$, --memory-limit=$ML$\n"
+	"    Set the memory limit for testee code as $ML$Mb;\n"
+	"  --tl-gen=$TL$\n"
+	"    Set the memory limit for generator as $TL$ms;\n"
+	"  --ml-gen=$ML$\n"
+	"    Set the memory limit for generator as $ML$Mb;\n"
+	"  --tl-chk=$TL$\n"
+	"    Set the memory limit for checker as $TL$ms;\n"
+	"  --ml-chk=$ML$\n"
+	"    Set the memory limit for checker as $ML$Mb;\n"
+	"  --compile-opt=$OPT$\n"
+	"    Set the compile options for testee code and standard code;\n"
+	"  --count=$NUMBER$|@infinite@\n"
+	"    Set the count of tests as $NUMBER$ (or infinite);\n"
+	"  --compile-gen[=@true@|@false@]\n"
+	"    Whether to compile generator, true if no argument provided;\n"
+	"  --compile-chk[=@true@|@false@]\n"
+	"    Whether to compile checker, true if no argument provided;\n"
+	"\n"
+	"About testee/standard:\n"
+	"  STDIN of testee/standard will be redirected from $FILE$.in.\n"
+	"  STDOUT of testee will be redirected into $FILE$.out and STDOUT\n"
+	"  of standard will be redirected into $FILE$.ans. Reading/Writing\n"
+	"  data directly from/into $FILE$.in/out/ans is OK too.\n"
+	"\n"
+	"About generator:\n"
+	"  STDOUT of the generator will be redirect to $FILE$.in. Writing\n"
+	"  the data directly into $FILE$.in is OK too.\n"
+	"\n"
+	"About checker:\n"
+	"  Checker code is recommended to be written with testlib.h. See\n"
+	"  <https://github.com/MikeMirzayanov/testlib/> for details of\n"
+	"  testlib.h. Otherwise you should make your checker be able to\n"
+	"  run in the format './chk $INPUT_FILE$ $OUTPUT_FILE$ $ANSWER_FILE$',\n"
+	"  and return 0 when the answer is accepted and non-zero otherwise.\n"
+	"  STDERR of the checker will be redirected into $FILE$.log.\n"
+	"\n",
+help_clean[]=
+	"Usage: stress clean [$OPTIONS$]...\n"
+	"Clean the file produced during testing.\n"
+	"\n"
+	"The following options are available:\n"
+	"  -f $FILE$, --file=$FILE$\n"
+	"    $FILE$.in/out/ans/log will be cleaned.\n"
+	"\n",
+help_checkers[]=
+	"Here are all built-in checkers and you should add them into PATH:\n"
+	"\n"
+	"  chk-caseicmp\n"
+	"    Compare single `int64` with testcases.\n"
+	"  chk-casencmp\n"
+	"    Compare `int64`s with testcases.\n"
+	"  chk-casewcmp\n"
+	"    Compare tokens with testcases.\n"
+	"  chk-dcmp\n"
+	"    Compare `double`s (1e-6 relative).\n"
+	"  chk-fcmp\n"
+	"    Compare lines.\n"
+	"  chk-hcmp  \n"
+	"    Compare signed huge integers.\n"
+	"  chk-icmp  \n"
+	"    Compare single `int`.\n"
+	"  chk-lcmp\n"
+	"    Compare single `long int`.\n"
+	"  chk-ncmp\n"
+	"    Compare `long long`s.\n"
+	"  chk-nyesno\n"
+	"    Compare YES/NOs (case insensitive).\n"
+	"  chk-rcmp\n"
+	"    Compare single `double` (1.5e-6 absolute).\n"
+	"  chk-rcmp4\n"
+	"    Compare `double`s (1e-4 relative).\n"
+	"  chk-rcmp6\n"
+	"    Compare `double`s (1e-6 relative).\n"
+	"  chk-rcmp9\n"
+	"    Compare `double`s (1e-9 relative).\n"
+	"  chk-rncmp\n"
+	"    Compare `double`s (1.5e-5 absolute).\n"
+	"  chk-uncmp\n"
+	"    Compare unordered `long long`s.\n"
+	"  chk-wcmp\n"
+	"    Compare tokens.\n"
+	"  chk-yesno\n"
+	"    Compare single YES/NO (case insensitive).\n"
+	"\n"
+	"See <https://github.com/MikeMirzayanov/testlib/tree/master/checkers>\n"
+	"for detail of these checkers.\n"
+	"\n";
 
 void main(const std::vector<const char*> &args)
 {

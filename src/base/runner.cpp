@@ -2,7 +2,6 @@
 
 namespace bp=boost::process;
 
-
 RunnerResult::RunnerResult():
 	type(OK),exit_code(-1),time_used(-1),memory_used(-1)
 {}
@@ -17,21 +16,47 @@ Runner::Runner(const std::string &_name,const std::string &_app,std::size_t _tl,
 {}
 Runner::~Runner() { terminate(); }
 
-void Runner::setInputFile(const std::string &file) { fn_in=file; }
+void Runner::setInputFile(const std::string &file)
+{ fn_in=file; }
 
-void Runner::setOutputFile(const std::string &file) { fn_out=file; }
+void Runner::setOutputFile(const std::string &file)
+{ fn_out=file; }
 
-void Runner::setErrorFile(const std::string &file) { fn_err=file; }
+void Runner::setErrorFile(const std::string &file)
+{ fn_err=file; }
 
-const std::string &Runner::getName() { return name; }
+void Runner::setName(const std::string &_name)
+{ name=_name; }
 
-const RunnerResult &Runner::getLastResult() { return res; }
+void Runner::setTimeLimit(std::size_t _tl)
+{ tl=_tl; }
 
-std::size_t Runner::getTimeLimit() { return tl; }
+void Runner::setMemoryLimit(std::size_t _ml)
+{ ml=_ml; }
 
-std::size_t Runner::getMemoryLimit() { return ml; }
+const std::string &Runner::getName()const
+{ return name; }
 
-bool Runner::running() { return proc.valid() && proc.running(); }
+const std::string &Runner::getInputFile()const
+{ return fn_in; }
+
+const std::string &Runner::getOutputFile()const
+{ return fn_out; }
+
+const std::string &Runner::getErrorFile()const
+{ return fn_err; }
+
+std::size_t Runner::getTimeLimit()const
+{ return tl; }
+
+std::size_t Runner::getMemoryLimit()const
+{ return ml; }
+
+const RunnerResult &Runner::getLastResult()const
+{ return res; }
+
+bool Runner::running()
+{ return proc.valid() && proc.running(); }
 
 void Runner::start(const std::string &args)
 {

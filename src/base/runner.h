@@ -1,9 +1,6 @@
 #pragma once
 
-#include <string>
-#include <thread>
-#include <chrono>
-#include <cstdio>
+#include "lib.hpp"
 #include <boost/process.hpp>
 
 #if defined(_WIN32)
@@ -11,11 +8,15 @@
 #include <psapi.h>
 #elif defined(__linux__)
 #include <sys/wait.h>
+#include <sys/resource.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/signal.h>
 #endif
 
 struct RunnerResult
 {
-	enum Types{ OK=1,TLE,MLE,RE,KILLED };
+	enum Types{ OK=1,TLE,MLE,RE,KILLED,UKE };
 	Types type;
 	unsigned exit_code;
 	std::size_t time_used,memory_used;
@@ -26,7 +27,8 @@ struct RunnerResult
 class Runner
 {
  private:
-	std::string name,app;
+	std::string name;
+	boost::filesystem::path app;
 	std::size_t tl,ml;
 	std::string fn_in,fn_out,fn_err;
 	boost::process::child proc;
@@ -34,6 +36,7 @@ class Runner
 	RunnerResult res;
 
 	void watching(FILE *inf,FILE *ouf,FILE *erf);
+	static std::vector<boost::filesystem::path> getSearchPaths();
 
  public:
 	Runner(const std::string &_name,const std::string &_app,std::size_t _tl,std::size_t _ml);
@@ -52,7 +55,7 @@ class Runner
 	std::size_t getMemoryLimit()const;
 	const RunnerResult &getLastResult()const;
 	bool running();
-	void start(const std::string &args="");
+	void start(const std::vector<std::string> &args={});
 	void terminate();
 	const RunnerResult &wait();
 };

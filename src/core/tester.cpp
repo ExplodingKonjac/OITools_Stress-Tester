@@ -17,7 +17,7 @@ void compileFiles()
 		asio::io_context ios;
 		bp::async_pipe ap(ios);
 		bp::child proc(
-			"g++ "+name+".cpp -o "+name+" "+opt.compile_opt,
+			"g++ \""+name+".cpp\" -o \""+name+"\" "+opt.compile_opt,
 			bp::std_err>ap,
 			ios,
 			bp::on_exit=[&](auto...){ ap.close(); }
@@ -47,6 +47,7 @@ void compileFiles()
 	vec.emplace_back(compileOne,opt.std_name);
 	for(auto &i: vec) i.join();
 	fout.close();
+	std::fputc('\n',stderr);
 }
 
 int checkResult(Runner *run,bool ignore_re=false)
@@ -57,11 +58,14 @@ int checkResult(Runner *run,bool ignore_re=false)
 	{
 	 case RunnerResult::TLE:
 		printColor(TextAttr::fg_yellow,"%s Time Limit Exceeded",name);
-		printColor(TextAttr::fg_yellow," (%zums/%zums)\n",res.time_used,run->getTimeLimit());
+		if(res.time_used==(size_t)-1)
+			fprintf(stderr," (killed)\n");
+		else
+			fprintf(stderr," (%zums/%zums)\n",res.time_used,run->getTimeLimit());
 		return 1;
 	 case RunnerResult::MLE:
 	 	printColor(TextAttr::fg_yellow,"%s Memory Limit Exceeded",name);
-		printColor(TextAttr::fg_yellow," (%.2lfMB/%.2lfMB)\n",res.memory_used/1024.0/1024.0,run->getMemoryLimit()/1024.0/1024.0);
+		fprintf(stderr," (%.2lfMB/%.2lfMB)\n",res.memory_used/1024.0/1024.0,run->getMemoryLimit()/1024.0/1024.0);
 		return 2;
 	 case RunnerResult::RE:
 		if(ignore_re) break;
@@ -69,6 +73,9 @@ int checkResult(Runner *run,bool ignore_re=false)
 		return 3;
 	 case RunnerResult::KILLED:
 		printColor(TextAttr::fg_purple,"%s Terminated\n",name);
+		return -1;
+	 case RunnerResult::UKE:
+		printColor(TextAttr::bg_purple|TextAttr::fg_white,"%s Unknown Error\n",name);
 		return -1;
 	 case RunnerResult::OK:
 		break;
@@ -85,7 +92,6 @@ void main(const std::vector<const char*> &args)
 	opt.pro_name=args[0];
 
 	compileFiles();
-	std::fputc('\n',stderr);
 
 	Runner *gen_run=new Runner("Generator",opt.gen_name,opt.tl_gen,opt.ml_gen),
 		   *chk_run=new Runner("Checker",opt.chk_name,opt.tl_chk,opt.ml_chk),
@@ -99,8 +105,7 @@ void main(const std::vector<const char*> &args)
 	chk_run->setErrorFile(opt.file+".log");
 
 	volatile bool force_quit=false;
-	static std::function<void()> tryQuit;
-	tryQuit=[&]
+	static std::function<void()> tryQuit=[&]
 	{
 		force_quit=true;
 		pro_run->terminate();
@@ -110,10 +115,10 @@ void main(const std::vector<const char*> &args)
 	};
 	std::signal(SIGINT,[](int x){ tryQuit(); });
 
-	std::string chk_argu="\""+opt.file+".in\" \""+opt.file+"\".out \""+opt.file+".ans\"";
+	std::vector<std::string> chk_argu{opt.file+".in",opt.file+".out",opt.file+".ans"};
 	for(std::size_t id=1;id<=opt.test_cnt;id++)
 	{
-		std::fprintf(stderr,"Testcase #%llu: ",id);
+		std::fprintf(stderr,"Testcase #%zu: ",id);
 
 		gen_run->start();
 		if(checkResult(gen_run)) goto bad;
@@ -139,14 +144,7 @@ void main(const std::vector<const char*> &args)
 #if defined(_WIN32)
 			MessageBox(nullptr,msg.c_str(),"Oops",MB_ICONERROR);
 #elif defined(__linux__)
-			std::string::size_type pos=0;
-			while(true)
-			{
-				pos=msg.find('\n',pos+1);
-				if(pos==msg.npos) break;
-				msg.replace(pos,1,"\\n");
-			}
-			std::system("zenity --error --text=\""+msg+"\"");
+			bp::system(bp::search_path("zenity"),"--error","--text="+msg);
 #endif
 			break;
 		}

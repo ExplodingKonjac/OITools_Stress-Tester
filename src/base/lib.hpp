@@ -105,6 +105,9 @@ inline void setTextAttr(TextAttr attr,FILE *tg=stderr)
 #endif
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
+
 template<typename ...Args>
 inline void printColor(TextAttr color,const char *fmt,Args ...args)
 {
@@ -146,3 +149,5 @@ inline void printMessage(const char *fmt,Args ...args)
 	std::fprintf(stderr,fmt,args...);
 	std::fputc('\n',stderr);
 }
+
+#pragma GCC diagnostic pop

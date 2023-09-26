@@ -1,6 +1,7 @@
 #include "runner.h"
 
 namespace bp=boost::process;
+namespace fs=boost::filesystem;
 
 RunnerResult::RunnerResult():
 	type(OK),exit_code(-1),time_used(-1),memory_used(-1)
@@ -10,10 +11,13 @@ RunnerResult::RunnerResult(Types _tp,unsigned _e,std::size_t _t,std::size_t _m):
 {}
 
 Runner::Runner(const std::string &_name,const std::string &_app,std::size_t _tl,std::size_t _ml):
-	name(_name),app(_app),tl(_tl),ml(_ml),
+	name(_name),app(bp::search_path(_app,getSearchPaths())),tl(_tl),ml(_ml),
 	fn_in("__nul__"),fn_out("__nul__"),fn_err("__nul__"),
 	proc(),watcher(),res()
-{}
+{
+	if(app.empty())
+		quitError("Cannot find executable '%s'.",_app.c_str());
+}
 Runner::~Runner() { terminate(); }
 
 void Runner::setInputFile(const std::string &file)
@@ -58,15 +62,47 @@ const RunnerResult &Runner::getLastResult()const
 bool Runner::running()
 { return proc.valid() && proc.running(); }
 
-void Runner::start(const std::string &args)
+std::vector<fs::path> Runner::getSearchPaths()
+{
+	auto res=boost::this_process::path();
+	res.emplace_back(".");
+	return res;
+}
+
+void Runner::start(const std::vector<std::string> &args)
 {
 	if(running())
 		throw std::runtime_error("start process while running.");
-	FILE *fp_in=(fn_in=="__std__"?stdin:fn_in=="__nul__"?nullptr:std::fopen(fn_in.c_str(),"r")),
-		 *fp_out=(fn_out=="__std__"?stdout:fn_out=="__nul__"?nullptr:std::fopen(fn_out.c_str(),"w")),
-		 *fp_err=(fn_err=="__std__"?stderr:fn_err=="__nul__"?nullptr:std::fopen(fn_err.c_str(),"w"));
-	proc=bp::child(app+" "+args,bp::std_in<fp_in,bp::std_out>fp_out,bp::std_err>fp_err);
-	watcher=std::thread(watching,this,fp_in,fp_out,fp_err);
+	FILE *fp_in=nullptr,*fp_out=nullptr,*fp_err=nullptr;
+#define FW_ARGS std::forward<decltype(args)>(args)...
+	auto createChild=[&](auto &&...args)
+	{
+		proc=bp::child(FW_ARGS);
+		watcher=std::thread(&Runner::watching,this,fp_in,fp_out,fp_err);
+	};
+	auto redirectInput=[&](auto &&f,auto &&...args)
+	{
+		if(fn_in=="__std__") fp_in=stdin,f(FW_ARGS);
+		else if(fn_in=="__nul__") f(FW_ARGS,bp::std_in<bp::null);
+		else fp_in=fopen(fn_in.c_str(),"r"),f(FW_ARGS,bp::std_in<fp_in);
+	};
+	auto redirectOutput=[&](auto &&f,auto &&...args)
+	{
+		if(fn_out=="__std__") fp_out=stdout,f(FW_ARGS);
+		else if(fn_out=="__nul__") f(FW_ARGS,bp::std_out>bp::null);
+		else fp_out=fopen(fn_out.c_str(),"w"),f(FW_ARGS,bp::std_out>fp_out);
+	};
+	auto redirectError=[&](auto &&f,auto &&...args)
+	{
+		if(fn_err=="__std__") fp_err=stderr,f(FW_ARGS);
+		else if(fn_err=="__nul__") f(FW_ARGS,bp::std_err>bp::null);
+		else fp_err=fopen(fn_err.c_str(),"w"),f(FW_ARGS,bp::std_err>fp_err);
+	};
+	std::invoke(redirectInput,
+				redirectOutput,
+				redirectError,
+				createChild,bp::exe=app,bp::args=args);
+#undef FW_ARGS
 }
 
 void Runner::terminate()
@@ -85,9 +121,20 @@ const RunnerResult &Runner::wait()
 
 void Runner::watching(FILE *fp_in,FILE *fp_out,FILE *fp_err)
 {
+	struct ScopeGuard
+	{
+		std::function<void()> f;
+		~ScopeGuard() { f(); }
+	};
+	ScopeGuard guard{[&]
+	{
+		if(fp_in && fp_in!=stdin) fclose(fp_in);
+		if(fp_out && fp_out!=stdout) fclose(fp_out);
+		if(fp_err && fp_err!=stderr) fclose(fp_err);
+	}};
 	res=RunnerResult{static_cast<RunnerResult::Types>(0),0,0,0};
-	auto handle=proc.native_handle();
 #if defined(_WIN32)
+	auto handle=proc.native_handle();
 	auto getMemory=[&]
 	{
 		PROCESS_MEMORY_COUNTERS_EX mem_info{sizeof(mem_info)};
@@ -111,43 +158,78 @@ void Runner::watching(FILE *fp_in,FILE *fp_out,FILE *fp_err)
 		{
 			proc.terminate();
 			res.type=RunnerResult::MLE;
-			goto end_watch;
+			return;
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
 	if(res.type==RunnerResult::KILLED)
-		goto end_watch;
+		return;
 	if(proc.running())
 	{
 		proc.terminate();
 		res.type=RunnerResult::TLE;
-		res.time_used=tl+200;
-		goto end_watch;
+		res.time_used=-1;
+		return;
 	}
+	proc.wait();
 	res.time_used=getTime();
 	if(res.time_used>tl)
 	{
 		res.type=RunnerResult::TLE;
-		goto end_watch;
+		return;
 	}
 	res.memory_used=getMemory();
 	if(res.memory_used>ml)
 	{
 		res.type=RunnerResult::MLE;
-		goto end_watch;
+		return;
 	}
-	proc.wait();
 	res.exit_code=proc.exit_code();
 	if(res.exit_code!=0)
 	{
 		res.type=RunnerResult::RE;
-		goto end_watch;
+		return;
 	}
 #elif defined(__linux__)
-	
+	auto pid=proc.id();
+	rlimit tim_lim{tl/1000+1,tl/1000+1},mem_lim{ml,ml};
+	prlimit(pid,RLIMIT_CPU,&tim_lim,nullptr);
+	prlimit(pid,RLIMIT_AS,&mem_lim,nullptr);
+	prlimit(pid,RLIMIT_STACK,&mem_lim,nullptr);
+	int status=0;
+	rusage usage{};
+	wait4(pid,&status,0,&usage);
+	if(res.type==RunnerResult::KILLED)
+		return;
+	if(WIFSIGNALED(status) && WTERMSIG(status)==SIGXCPU)
+	{
+		res.type=RunnerResult::TLE;
+		res.time_used=-1;
+		return;
+	}
+	res.time_used=usage.ru_utime.tv_sec+usage.ru_utime.tv_usec/1000;
+	if(res.time_used>tl)
+	{
+		res.type=RunnerResult::TLE;
+		return;
+	}
+	res.memory_used=usage.ru_maxrss*1024;
+	if(res.memory_used>ml)
+	{
+		res.type=RunnerResult::MLE;
+		return;
+	}
+	res.exit_code=status;
+	if(res.exit_code!=0)
+	{
+		res.type=RunnerResult::RE;
+		if(WIFEXITED(status))
+			res.exit_code=WEXITSTATUS(status);
+		else if(WIFSIGNALED(status))
+			res.exit_code=WTERMSIG(status);
+		else if(WIFSTOPPED(status))
+			res.exit_code=WSTOPSIG(status);
+		return;
+	}
 #endif
-	end_watch:;
-	if(fp_in && fp_in!=stdin) fclose(fp_in);
-	if(fp_out && fp_out!=stdout) fclose(fp_out);
-	if(fp_err && fp_err!=stderr) fclose(fp_err);
 }

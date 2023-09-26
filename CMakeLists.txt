@@ -15,9 +15,17 @@ elseif(CMAKE_BUILD_TYPE AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 else()
 	message(FATAL_ERROR "Unknown build type.")
 endif()
-if(WIN32)
+
+# requires
+if(CMAKE_SYSTEM_NAME MATCHES "Windows")
 	set(Boost_ROOT D:/Libraries/boost/)
 	set(Boost_NO_SYSTEM_PATHS ON)
+elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")
+	execute_process(COMMAND zenity --version
+					RESULT_VARIABLE res)
+	if(NOT ${res} EQUAL 0)
+		message(FATAL_ERROR "Requires zenity. Use 'sudo apt install zenity' to install.")
+	endif()
 endif()
 find_package(Boost COMPONENTS filesystem REQUIRED)
 

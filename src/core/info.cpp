@@ -1,9 +1,9 @@
-#include "helper.h"
+#include "info.h"
 
-namespace Helper
+namespace Info
 {
 
-void printHelp(std::string_view text)
+void printColored(std::string_view text)
 {
 	bool is_var=false,is_str=false,is_type=false;
 	std::size_t pos=0;
@@ -34,16 +34,39 @@ void printHelp(std::string_view text)
 	setTextAttr(TextAttr::plain|TextAttr::tg_stdout);
 }
 
-static constexpr char help_general[]=
-	"Usage: stress $MODULE_NAME$ [$MODULE_ARGUMENTS$]... [$OPTIONS$]..."
-	""
-	"$MODULE_NAME$ can be @help@|@test@|@clean@."
-	""
-	"run the following command to get further help:"
-	"  oit-stress help [@general@|@test@|@clean@|@checkers@]"
-	"",
-help_test[]=
-	"Usage: stress test $NAME$ [$OPTIONS$]...\n"
+void displayVersion()
+{
+	constexpr char version_info[]=
+	"oit-stress 1.3\n"
+	"Copyright (C) 2023 ExplodingKonjac\n"
+	"\n"
+	"This program is free software: you can redistribute it and/or modify\n"
+	"it under the terms of the GNU General Public License as published by\n"
+	"the Free Software Foundation, either version 3 of the License, or\n"
+	"(at your option) any later version.\n"
+	"\n"
+	"This program is distributed in the hope that it will be useful,\n"
+	"but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+	"MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+	"GNU General Public License for more details.\n"
+	"\n"
+	"You should have received a copy of the GNU General Public License\n"
+	"along with this program.  If not, see <https://www.gnu.org/licenses/>.\n";
+	std::cout<<version_info;
+}
+
+void displayHelp(const std::vector<const char*> &args)
+{
+	constexpr char help_general[]=
+	"Usage: stress $RUN_TYPE$ [$MODULE_ARGUMENTS$]... [$OPTIONS$]...\n"
+	"\n"
+	"$RUN_TYPE$ can be @--version@|@--help@|@--test@|@--clean@.\n"
+	"\n"
+	"run the following command to get further help:\n"
+	"  oit-stress --help [@general@|@test@|@clean@|@checkers@]\n"
+	"\n",
+	help_test[]=
+	"Usage: stress --test $NAME$ [$OPTIONS$]...\n"
 	"Do testing for $NAME$.cpp.\n"
 	"\n"
 	"The following options are available:\n"
@@ -94,15 +117,15 @@ help_test[]=
 	"  and return 0 when the answer is accepted and non-zero otherwise.\n"
 	"  STDERR of the checker will be redirected into $FILE$.log.\n"
 	"\n",
-help_clean[]=
-	"Usage: stress clean [$OPTIONS$]...\n"
+	help_clean[]=
+	"Usage: stress --clean [$OPTIONS$]...\n"
 	"Clean the file produced during testing.\n"
 	"\n"
 	"The following options are available:\n"
 	"  -f $FILE$, --file=$FILE$\n"
 	"    $FILE$.in/out/ans/log will be cleaned.\n"
 	"\n",
-help_checkers[]=
+	help_checkers[]=
 	"Here are all built-in checkers and you should add them into PATH:\n"
 	"\n"
 	"  chk-caseicmp\n"
@@ -146,8 +169,6 @@ help_checkers[]=
 	"for detail of these checkers.\n"
 	"\n";
 
-void main(const std::vector<const char*> &args)
-{
 	const char *type="general";
 	if(args.size()>1)
 		printMessage("Redundant arguments ignored.");
@@ -170,7 +191,7 @@ void main(const std::vector<const char*> &args)
 	 default:
 		quitError("Unknown help type '%s'.",type);
 	}
-	printHelp(text);
+	printColored(text);
 }
 
-} // namespace Helper
+} // namespace Info

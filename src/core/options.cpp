@@ -1,6 +1,7 @@
 #include "options.h"
 
 Options::Options():
+	run_type(NONE),
 	file("data"),
 	pro_name("code"),
 	std_name("std"),
@@ -31,6 +32,10 @@ static const option long_opts[]={
 	{"count",required_argument,0,'n'},
 	{"compile-gen",optional_argument,0,505},
 	{"compile-chk",optional_argument,0,506},
+	{"version",no_argument,0,'v'},
+	{"help",no_argument,0,507},
+	{"test",no_argument,0,508},
+	{"clean",no_argument,0,509},
 	{nullptr,0,0,0}
 };
 static const char short_opts[]=
@@ -52,6 +57,18 @@ void parseOptions(int argc,char *argv[])
 	{
 		switch(arg)
 		{
+		 case 'v':
+			opt.run_type=Options::VERSION;
+			break;
+		 case 507:
+		 	opt.run_type=Options::HELP;
+			break;
+		 case 508:
+			opt.run_type=Options::TEST;
+			break;
+		 case 509:
+			opt.run_type=Options::CLEAN;
+			break;
 		 case 'f':
 			opt.file=optarg;
 			break;

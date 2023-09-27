@@ -11,6 +11,7 @@ int main(int argc,char *argv[])
 	{
 	 case Options::VERSION:
 		Info::displayVersion();
+		break;
 	 case Options::HELP:
 		Info::displayHelp(vec);
 		break;

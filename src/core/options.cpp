@@ -117,7 +117,7 @@ void parseOptions(int argc,char *argv[])
 			else convert(opt.compile_chk,optarg);
 			break;
 		 default:
-			quitError("Unknown option '%s'. Use 'stress help' to get help.",argv[optind-1]);
+			quitError("Unknown option '%s'. Use 'oit-stress --help' to get help.",argv[optind-1]);
 			break;
 		}
 	}

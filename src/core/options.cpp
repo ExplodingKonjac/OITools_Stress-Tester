@@ -39,7 +39,7 @@ static const option long_opts[]={
 	{nullptr,0,0,0}
 };
 static const char short_opts[]=
-	"f:s:g:c:T:M:p:n:"
+	":f:s:g:c:T:M:p:n:v"
 ;
 void parseOptions(int argc,char *argv[])
 {
@@ -49,7 +49,7 @@ void parseOptions(int argc,char *argv[])
 	{
 		is.clear(),is.str(val);
 		is>>res;
-		if(is.fail()) quitError("Failed to read value %s for option %s.",val,argv[optind-1]);
+		if(is.fail()) quitError("Failed to read value '%s' for option '%s'.",val,argv[optind-1]);
 	};
 	int arg,idx;
 	opterr=0;
@@ -116,9 +116,10 @@ void parseOptions(int argc,char *argv[])
 			if(!optarg) opt.compile_chk=true;
 			else convert(opt.compile_chk,optarg);
 			break;
-		 default:
-			quitError("Unknown option '%s'. Use 'oit-stress --help' to get help.",argv[optind-1]);
-			break;
+		 case ':':
+			quitError("Missing argument for '%s'.\nRun 'oit-stress --help' to get help.",argv[optind-1]);
+		 case '?':
+			quitError("Unknown option '%s'.\nRun 'oit-stress --help' to get help.",argv[optind-1]);
 		}
 	}
 }

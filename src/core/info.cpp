@@ -37,7 +37,7 @@ void printColored(std::string_view text)
 void displayVersion()
 {
 	constexpr char version_info[]=
-	"oit-stress 1.3.2\n"
+	"oit-stress 1.3.3\n"
 	"Copyright (C) 2023 ExplodingKonjac\n"
 	"\n"
 	"This program is free software: you can redistribute it and/or modify\n"

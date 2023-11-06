@@ -12,14 +12,13 @@ void compileFiles()
 
 	std::ofstream fout("compile.log");
 	std::mutex locker;
-	auto compileOne=[&](const std::string &name)
+	auto compileOne=[&](const std::string &name,const std::string &extra_opt)
 	{
 		asio::io_context ios;
 		bp::async_pipe ap(ios);
 		bp::child proc(
-			"g++ \""+name+".cpp\" -o \""+name+"\" "+opt.compile_opt,
-			bp::std_err>ap,
-			ios,
+			"g++ \""+name+".cpp\" -o \""+name+"\" "+extra_opt,
+			bp::std_err>ap,ios,
 			bp::on_exit=[&](auto...){ ap.close(); }
 		);
 		std::string msg,buf(512,0);
@@ -41,10 +40,10 @@ void compileFiles()
 		locker.unlock();
 	};
 	std::vector<std::thread> vec;
-	if(opt.compile_gen) vec.emplace_back(compileOne,opt.gen_name);
-	if(opt.compile_chk) vec.emplace_back(compileOne,opt.chk_name);
-	vec.emplace_back(compileOne,opt.pro_name);
-	vec.emplace_back(compileOne,opt.std_name);
+	if(opt.compile_gen) vec.emplace_back(compileOne,opt.gen_name,"");
+	if(opt.compile_chk) vec.emplace_back(compileOne,opt.chk_name,"");
+	vec.emplace_back(compileOne,opt.pro_name,opt.compile_opt);
+	vec.emplace_back(compileOne,opt.std_name,opt.compile_opt);
 	for(auto &i: vec) i.join();
 	fout.close();
 	std::fputc('\n',stderr);
@@ -94,7 +93,7 @@ void main(const std::vector<const char*> &args)
 	compileFiles();
 
 	Runner *gen_run=new Runner("Generator",opt.gen_name,opt.tl_gen,opt.ml_gen),
-		   *chk_run=new Runner("Checker",opt.chk_name,opt.tl_chk,opt.ml_chk),
+		   *chk_run=new Runner("Checker",opt.chk_name,opt.tl_chk,opt.ml_chk,true),
 		   *pro_run=new Runner("Testee",opt.pro_name,opt.tl,opt.ml),
 		   *std_run=new Runner("Standard",opt.std_name,opt.tl,opt.ml);
 	gen_run->setOutputFile(opt.file+".in");

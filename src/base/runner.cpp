@@ -10,8 +10,8 @@ RunnerResult::RunnerResult(Types _tp,unsigned _e,std::size_t _t,std::size_t _m):
 	type(_tp),exit_code(_e),time_used(_t),memory_used(_m)
 {}
 
-Runner::Runner(const std::string &_name,const std::string &_app,std::size_t _tl,std::size_t _ml):
-	name(_name),app(bp::search_path(_app,getSearchPaths())),tl(_tl),ml(_ml),
+Runner::Runner(const std::string &_name,const std::string &_app,std::size_t _tl,std::size_t _ml,bool _env):
+	name(_name),app(bp::search_path(_app,getSearchPaths(_env))),tl(_tl),ml(_ml),
 	fn_in("__nul__"),fn_out("__nul__"),fn_err("__nul__"),
 	proc(),watcher(),res()
 {
@@ -62,9 +62,10 @@ const RunnerResult &Runner::getLastResult()const
 bool Runner::running()
 { return proc.valid() && proc.running(); }
 
-std::vector<fs::path> Runner::getSearchPaths()
+std::vector<fs::path> Runner::getSearchPaths(bool env)
 {
-	auto res=boost::this_process::path();
+	std::vector<fs::path> res;
+	if(env) res=boost::this_process::path();
 	res.emplace_back(".");
 	return res;
 }
@@ -126,8 +127,7 @@ void Runner::watching(FILE *fp_in,FILE *fp_out,FILE *fp_err)
 		std::function<void()> f;
 		~ScopeGuard() { f(); }
 	};
-	ScopeGuard guard{[&]
-	{
+	ScopeGuard guard{[&] {
 		if(fp_in && fp_in!=stdin) fclose(fp_in);
 		if(fp_out && fp_out!=stdout) fclose(fp_out);
 		if(fp_err && fp_err!=stderr) fclose(fp_err);

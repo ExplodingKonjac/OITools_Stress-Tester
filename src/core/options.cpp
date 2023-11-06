@@ -51,7 +51,7 @@ void parseOptions(int argc,char *argv[])
 		is>>res;
 		if(is.fail()) quitError("Failed to read value '%s' for option '%s'.",val,argv[optind-1]);
 	};
-	int arg,idx;
+	int arg,idx,lstind=optind;
 	opterr=0;
 	while(~(arg=getopt_long(argc,argv,short_opts,long_opts,&idx)))
 	{
@@ -117,9 +117,10 @@ void parseOptions(int argc,char *argv[])
 			else convert(opt.compile_chk,optarg);
 			break;
 		 case ':':
-			quitError("Missing argument for '%s'.\nRun 'oit-stress --help' to get help.",argv[optind-1]);
+			quitError("Missing argument for '%s'.\nRun 'oit-stress --help' to get help.",argv[lstind]);
 		 case '?':
-			quitError("Unknown option '%s'.\nRun 'oit-stress --help' to get help.",argv[optind-1]);
+			quitError("Unknown option '%s'.\nRun 'oit-stress --help' to get help.",argv[lstind]);
 		}
+		lstind=optind;
 	}
 }

@@ -36,10 +36,10 @@ class Runner
 	RunnerResult res;
 
 	void watching(FILE *inf,FILE *ouf,FILE *erf);
-	static std::vector<boost::filesystem::path> getSearchPaths();
+	static std::vector<boost::filesystem::path> getSearchPaths(bool env);
 
  public:
-	Runner(const std::string &_name,const std::string &_app,std::size_t _tl,std::size_t _ml);
+	Runner(const std::string &_name,const std::string &_app,std::size_t _tl,std::size_t _ml,bool _env=false);
 	~Runner();
 	void setInputFile(const std::string &file);
 	void setOutputFile(const std::string &file);

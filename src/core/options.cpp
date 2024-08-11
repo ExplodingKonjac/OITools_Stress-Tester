@@ -12,6 +12,7 @@ Options::Options():
 	tl_gen(5000),ml_gen(2048_MB),
 	tl_chk(5000),ml_chk(2048_MB),
 	test_cnt(SIZE_MAX),
+	jobs_cnt(1),
 	compile_gen(true),compile_chk(false)
 {}
 

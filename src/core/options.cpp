@@ -47,9 +47,11 @@ void parseOptions(int argc,char *argv[])
 	is>>std::boolalpha;
 	auto convert=[&](auto &res,const char *val)
 	{
-		is.clear(),is.str(val);
+		is.clear();
+		is.str(val);
 		is>>res;
-		if(is.fail()) quitError("Failed to read value '%s' for option '%s'.",val,argv[optind-1]);
+		if(is.fail())
+			quitError("Failed to read value '%s' for option '%s'.",val,argv[optind-1]);
 	};
 	int arg,idx,lstind=optind;
 	opterr=0;
@@ -94,7 +96,8 @@ void parseOptions(int argc,char *argv[])
 		 case 'n':
 		 	if(!strcmp(optarg,"infinite"))
 				opt.test_cnt=-1;
-			else convert(opt.test_cnt,optarg);
+			else
+				convert(opt.test_cnt,optarg);
 			break;
 		 case 501:
 			convert(opt.tl_gen,optarg);
@@ -109,12 +112,16 @@ void parseOptions(int argc,char *argv[])
 			convert(opt.ml_chk,optarg);
 			break;
 		 case 505:
-			if(!optarg) opt.compile_gen=true;
-			else convert(opt.compile_gen,optarg);
+			if(!optarg)
+				opt.compile_gen=true;
+			else
+				convert(opt.compile_gen,optarg);
 			break;
 		 case 506:
-			if(!optarg) opt.compile_chk=true;
-			else convert(opt.compile_chk,optarg);
+			if(!optarg)
+				opt.compile_chk=true;
+			else
+				convert(opt.compile_chk,optarg);
 			break;
 		 case ':':
 			quitError("Missing argument for '%s'.\nRun 'oit-stress --help' to get help.",argv[lstind]);

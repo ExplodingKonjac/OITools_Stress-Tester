@@ -7,9 +7,8 @@ void printColored(std::string_view text)
 {
 	bool is_var=false,is_str=false,is_type=false;
 	std::size_t pos=0;
-	while(pos<text.size())
+	while(true)
 	{
-		auto nxt=text.find_first_of("$@`",pos);
         TextAttr attr=TextAttr::tg_stdout;
 		if(is_var)
 			attr|=TextAttr::fg_cyan;
@@ -20,17 +19,27 @@ void printColored(std::string_view text)
 		else
 			attr|=TextAttr::plain;
         setTextAttr(attr);
+		auto nxt=text.find_first_of("$@`",pos);
+		if(nxt==text.npos)
+			break;
 		std::cout<<text.substr(pos,nxt-pos);
-		if(nxt==text.npos) break;
 		pos=nxt+1;
 		switch(text[nxt])
 		{
-		 case '$': is_var^=1;break;
-		 case '@': is_str^=1;break;
-		 case '`': is_type^=1;break;
-		 default: break;
+		 case '$':
+			is_var^=1;
+			break;
+		 case '@':
+			is_str^=1;
+			break;
+		 case '`':
+		 	is_type^=1;
+			break;
+		 default:
+			break;
 		}
 	}
+	std::cout<<text.substr(pos);
 	setTextAttr(TextAttr::plain|TextAttr::tg_stdout);
 }
 

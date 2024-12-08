@@ -9,8 +9,10 @@ void tryDelete(const std::string &name)
 
 	std::error_code ec;
 	bool ret=fs::remove(name,ec);
-	if(ret) printMessage("Successfully deleted file %s.",name.c_str());
-	else printMessage("Failed to delete file %s (%d).",name.c_str(),ec.value());
+	if(ret)
+		printMessage("Successfully deleted file %s.",name.c_str());
+	else
+		printMessage("Failed to delete file %s (%d).",name.c_str(),ec.value());
 }
 void main(const std::vector<const char*> &args)
 {

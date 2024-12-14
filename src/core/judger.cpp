@@ -1,7 +1,26 @@
 #include "judger.h"
 
-namespace bp=boost::process;
+namespace bp=boost::process::v2;
 namespace fs=boost::filesystem;
+
+const char *ProcessInfo::errorString()
+{
+	switch(type)
+	{
+	 case OK:
+		return "OK";
+	 case TLE:
+		return "Time Limit Exceeded";
+	 case MLE:
+		return "Memory Limit Exceeded";
+	 case RE:
+		return "Runtime Error";
+	 case TERM:
+		return "Terminated";
+	 default:
+		return "Unknown Error";
+	}
+}
 
 Judger::Judger(const std::string &_id,
 			   const fs::path &_prefix,
@@ -14,71 +33,14 @@ Judger::Judger(const std::string &_id,
 	exe(_exe),
 	std(_std),
 	gen(_gen),
-	chk(_chk)
+	chk(_chk),
+	input_file(_prefix/fs::path(_id+".in")),
+	output_file(_prefix/fs::path(_id+".out")),
+	answer_file(_prefix/fs::path(_id+".ans")),
+	log_file(_prefix/fs::path(_id+".log"))
 {}
 
-RunnerResult Judger::judge()
-{
-	fs::path input_file=prefix/fs::path(id+".in"),
-			 output_file=prefix/fs::path(id+".out"),
-			 answer_file=prefix/fs::path(id+".ans"),
-			 log_file=prefix/fs::path(id+".log");
-	stopped=false;
-
-	ProcessInfo gen_info=runProgram(
-		gen,
-		{},
-		opt.tl_gen,
-		opt.ml_gen,
-		fs::path{},
-		input_file,
-		fs::path{}
-	);
-	if(gen_info.type!=ProcessInfo::OK)
-		return RunnerResult{RunnerResult::GEN_ERR,gen_info};
-
-	ProcessInfo exe_info=runProgram(
-		exe,
-		{},
-		opt.tl,
-		opt.ml,
-		input_file,
-		output_file,
-		fs::path{}
-	);
-	if(exe_info.type!=ProcessInfo::OK)
-		return RunnerResult{RunnerResult::EXE_ERR,exe_info};
-
-	ProcessInfo std_info=runProgram(
-		std,
-		{},
-		opt.tl,
-		opt.ml,
-		input_file,
-		answer_file,
-		fs::path{}
-	);
-	if(std_info.type!=ProcessInfo::OK)
-		return RunnerResult{RunnerResult::STD_ERR,std_info};
-
-	ProcessInfo chk_info=runProgram(
-		chk,
-		{input_file.string(),output_file.string(),answer_file.string()},
-		opt.tl_chk,
-		opt.ml_chk,
-		fs::path{},
-		fs::path{},
-		log_file
-	);
-	if(chk_info.type==ProcessInfo::RE)
-		return RunnerResult{RunnerResult::WA,std_info};
-	else if(chk_info.type!=ProcessInfo::OK)
-		return RunnerResult{RunnerResult::GEN_ERR,gen_info};
-	
-	return RunnerResult{RunnerResult::OK,std_info};
-}
-
-ProcessInfo Judger::watchProcess(bp::child &proc,
+ProcessInfo Judger::watchProcess(bp::process &proc,
 								 std::size_t time_limit,
 								 std::size_t memory_limit)
 {
@@ -136,7 +98,6 @@ ProcessInfo Judger::watchProcess(bp::child &proc,
 		res.type=ProcessInfo::TLE;
 	else if(res.memory_used>memory_limit)
 		res.type=ProcessInfo::MLE;
-	return res;
 
 #elif defined(__linux__)
 	auto pid=proc.pid();
@@ -161,7 +122,7 @@ ProcessInfo Judger::watchProcess(bp::child &proc,
 	}
 	if(WIFSIGNALED(status) && WTERMSIG(status)==SIGXCPU)
 	{
-		res.type=RunnerResult::TLE;
+		res.type=JudgeResult::TLE;
 		return res;
 	}
 
@@ -170,12 +131,12 @@ ProcessInfo Judger::watchProcess(bp::child &proc,
 	res.memory_used=usage.ru_maxrss*1024;
 
 	if(res.time_used>time_limit)
-		res.type=RunnerResult::TLE;
+		res.type=JudgeResult::TLE;
 	else if(res.memory_used>ml)
-		res.type=RunnerResult::MLE;
+		res.type=JudgeResult::MLE;
 	else if(res.exit_code!=0)
 	{
-		res.type=RunnerResult::RE;
+		res.type=JudgeResult::RE;
 		if(WIFEXITED(status))
 			res.exit_code=WEXITSTATUS(status);
 		else if(WIFSIGNALED(status))
@@ -183,52 +144,79 @@ ProcessInfo Judger::watchProcess(bp::child &proc,
 		else if(WIFSTOPPED(status))
 			res.exit_code=WSTOPSIG(status);
 	}
-	return res;
 #endif
+
+	return res;
 }
 
 ProcessInfo Judger::runProgram(const fs::path &target,
 							   const std::vector<std::string> &args,
 							   std::size_t time_limit,
 							   std::size_t memory_limit,
+							   const fs::path &prefix,
 							   const fs::path &inf,
 							   const fs::path &ouf,
 							   const fs::path &erf)
 {
-	bp::child proc;
-
-#define FW_ARGS std::forward<decltype(args)>(args)...
-	auto createChild=[&proc](auto &&...args)
-	{
-		proc=bp::child(FW_ARGS);
-	};
-	auto redirectInput=[&inf](auto &&f,auto &&...args)
-	{
-		if(inf.empty())
-			f(FW_ARGS,bp::std_in<bp::null);
-		else f(FW_ARGS,bp::std_in<inf);
-	};
-	auto redirectOutput=[&ouf](auto &&f,auto &&...args)
-	{
-		if(ouf.empty())
-			f(FW_ARGS,bp::std_out>bp::null);
-		else f(FW_ARGS,bp::std_out>ouf);
-	};
-	auto redirectError=[&erf](auto &&f,auto &&...args)
-	{
-		if(erf.empty())
-			f(FW_ARGS,bp::std_err>bp::null);
-		else f(FW_ARGS,bp::std_err>erf);
-	};
-	std::invoke(
-		redirectInput,
-		redirectOutput,
-		redirectError,
-		createChild,
-		bp::exe=target,bp::args=args
+	bp::process proc(
+		target,args,
+		bp::process_stdio{inf,ouf,erf},
+		bp::process_start_dir{prefix}
 	);
-#undef FW_ARGS
-	
 	ProcessInfo res=watchProcess(proc,time_limit,memory_limit);
 	return res;
+}
+
+JudgeResult Judger::judge()
+{
+	stopped=false;
+
+	ProcessInfo gen_info=runProgram(
+		gen,{},
+		opt.tl_gen,opt.ml_gen,
+		prefix,null_path,input_file,null_path
+	);
+	if(stopped)
+		return JudgeResult{JudgeResult::TERM};
+	else if(gen_info.type!=ProcessInfo::OK)
+		return JudgeResult{JudgeResult::GEN_ERR,gen_info};
+
+	ProcessInfo exe_info=runProgram(
+		exe,{},
+		opt.tl,opt.ml,
+		prefix,input_file,output_file,null_path
+	);
+	if(stopped)
+		return JudgeResult{JudgeResult::TERM};
+	else if(exe_info.type!=ProcessInfo::OK)
+		return JudgeResult{JudgeResult::EXE_ERR,exe_info};
+
+	ProcessInfo std_info=runProgram(
+		std,{},
+		opt.tl,opt.ml,
+		prefix,input_file,answer_file,null_path
+	);
+	if(stopped)
+		return JudgeResult{JudgeResult::TERM};
+	else if(std_info.type!=ProcessInfo::OK)
+		return JudgeResult{JudgeResult::STD_ERR,std_info};
+
+	ProcessInfo chk_info=runProgram(
+		chk,{input_file.string(),output_file.string(),answer_file.string()},
+		opt.tl_chk,opt.ml_chk,
+		prefix,null_path,null_path,log_file
+	);
+	if(stopped)
+		return JudgeResult{JudgeResult::TERM};
+	else if(chk_info.type==ProcessInfo::RE)
+		return JudgeResult{JudgeResult::WA,std_info};
+	else if(chk_info.type!=ProcessInfo::OK)
+		return JudgeResult{JudgeResult::GEN_ERR,gen_info};
+
+	return JudgeResult{JudgeResult::OK,std_info};
+}
+
+void Judger::terminate()
+{
+	stopped=true;
 }

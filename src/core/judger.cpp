@@ -2,6 +2,13 @@
 
 namespace bp=boost::process::v2;
 namespace fs=boost::filesystem;
+namespace as=boost::asio;
+
+#if defined(_WIN32)
+const fs::path null_path("NUL");
+#elif defined(__linux__)
+const fs::path null_path("/dev/null");
+#endif
 
 const char *ProcessInfo::errorString()
 {
@@ -75,7 +82,7 @@ ProcessInfo Judger::watchProcess(bp::process &proc,
 		if(stopped)
 		{
 			proc.terminate();
-			res.type=ProcessInfo::KILLED;
+			res.type=ProcessInfo::TERM;
 			return res;
 		}
 		Sleep(15);
@@ -115,7 +122,7 @@ ProcessInfo Judger::watchProcess(bp::process &proc,
 		{
 			kill(pid,SIGKILL);
 			wait(NULL);
-			res.type=ProcessInfo::KILLED;
+			res.type=ProcessInfo::TERM;
 			return res;
 		}
 		usleep(15000);
@@ -158,7 +165,9 @@ ProcessInfo Judger::runProgram(const fs::path &target,
 							   const fs::path &ouf,
 							   const fs::path &erf)
 {
+	as::io_context io_context;
 	bp::process proc(
+		io_context,
 		target,args,
 		bp::process_stdio{inf,ouf,erf},
 		bp::process_start_dir{prefix}

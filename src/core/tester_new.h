@@ -16,18 +16,18 @@ namespace fs=boost::filesystem;
 class Tester
 {
  private:
-	std::queue<pair<int,JudgeResult>> result_q;
+	std::queue<std::pair<int,JudgeResult>> result_q;
 	std::size_t tot;
 	std::mutex mtx_q;
 	std::condition_variable cond_q,cond_pause;
 	bool stop_flag,pause_flag;
 
 	static void compileOne(const std::string &filename,const std::vector<std::string> &extra_opt,std::mutex &mtx);
-	void judgingThread(Judger &judger);
+	void judgingThread(int id,Judger &judger);
 	void compileExecutables();
-	void eventLoop();
+	fs::path createTempDirectory();
 
  public:
 	Tester();
 	void start();
-}
+};

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "defines.hpp"
-
 #include "options.h"
 
 #include <boost/process.hpp>
@@ -22,14 +21,14 @@ namespace bp=boost::process::v2;
 namespace fs=boost::filesystem;
 
 #if defined(_WIN32)
-constexpr fs::path null_path("NUL");
+extern const fs::path null_path;
 #elif defined(__linux__)
-constexpr fs::path null_path("/dev/null");
+extern const fs::path null_path;
 #endif
 
 struct ProcessInfo
 {
-	enum Types{ UKE=-1,OK,TLE,MLE,RE,KILLED };
+	enum Types{ UKE=-1,OK,TLE,MLE,RE,TERM };
 	Types type=UKE;
 	unsigned exit_code=-1;
 	std::size_t time_used=-1,memory_used=-1;

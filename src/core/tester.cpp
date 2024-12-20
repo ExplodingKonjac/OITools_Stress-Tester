@@ -1,170 +1,286 @@
-#include "tester.h"
+#include "tester_new.h"
 
-namespace bp=boost::process;
-namespace asio=boost::asio;
+namespace bp=boost::process::v2;
+namespace as=boost::asio;
+namespace fs=boost::filesystem;
 
-namespace Tester
+Tester::Tester()
+{}
+
+void Tester::judgingThread(int id,Judger &judger)
 {
-
-void compileFiles()
-{
-	using Handler=std::function<void(const boost::system::error_code&,std::size_t)>;
-
-	std::ofstream fout("compile.log");
-	std::mutex locker;
-	auto compileOne=[&](const std::string &name,const std::string &extra_opt)
+	while(!stop_flag && tot<opt.test_cnt)
 	{
-		asio::io_context ios;
-		bp::async_pipe ap(ios);
-		bp::child proc(
-			"g++ \""+name+".cpp\" -o \""+name+"\" "+extra_opt,
-			bp::std_err>ap,ios,
-			bp::on_exit=[&](auto...){ ap.close(); }
-		);
-		std::string msg,buf(512,0);
-		Handler func=[&](auto ec,auto siz)
+		JudgeResult res=judger.judge();
+		std::unique_lock<std::mutex> lock(mtx_q);
+		cond_pause.wait(lock,[this] {
+			return !pause_flag;
+		});
+		if(!stop_flag)
 		{
-			msg.append(buf.data(),siz);
-			if(!ec) asio::async_read(ap,asio::buffer(buf),func);
-		};
-		asio::async_read(ap,asio::buffer(buf),func);
-		ios.run();
-		proc.wait();
-		int ret=proc.exit_code();
-		locker.lock();
-		if(ret==0) fout<<name<<".cpp: successfully compiled. Compiler messages:\n"<<msg;
-		else fout<<name<<".cpp: compile error. Compiler messages:\n"<<msg;
-		fout.flush();
-		if(ret==0) printMessage("%s.cpp has been compiled.",name.c_str());
-		else quitFailed("Compilation error on %s.cpp. See compile.log for details.",name.c_str());
-		locker.unlock();
-	};
-	std::vector<std::thread> vec;
-	if(opt.compile_gen) vec.emplace_back(compileOne,opt.gen_name,"");
-	if(opt.compile_chk) vec.emplace_back(compileOne,opt.chk_name,"");
-	vec.emplace_back(compileOne,opt.pro_name,opt.compile_opt);
-	vec.emplace_back(compileOne,opt.std_name,opt.compile_opt);
-	for(auto &i: vec) i.join();
-	fout.close();
-	std::fputc('\n',stderr);
-}
-
-int checkResult(Runner *run,bool ignore_re=false)
-{
-	auto &res=run->wait();
-	auto name=run->getName().c_str();
-	switch(res.type)
-	{
-	 case RunnerResult::TLE:
-		printColor(TextAttr::fg_yellow,"%s Time Limit Exceeded",name);
-		if(res.time_used==(size_t)-1)
-			fprintf(stderr," (killed)\n");
-		else
-			fprintf(stderr," (%zums/%zums)\n",res.time_used,run->getTimeLimit());
-		return 1;
-	 case RunnerResult::MLE:
-	 	printColor(TextAttr::fg_yellow,"%s Memory Limit Exceeded",name);
-		fprintf(stderr," (%.2lfMB/%.2lfMB)\n",res.memory_used/1024.0/1024.0,run->getMemoryLimit()/1024.0/1024.0);
-		return 2;
-	 case RunnerResult::RE:
-		if(ignore_re) break;
-		printColor(TextAttr::fg_red,"%s Runtime Error (%u)\n",name,res.exit_code);
-		return 3;
-	 case RunnerResult::KILLED:
-		printColor(TextAttr::fg_purple,"%s Terminated\n",name);
-		return -1;
-	 case RunnerResult::UKE:
-		printColor(TextAttr::bg_purple|TextAttr::fg_white,"%s Unknown Error\n",name);
-		return -1;
-	 case RunnerResult::OK:
-		break;
+			if(res.type!=JudgeResult::OK)
+				stop_flag=true;
+			result_q.emplace(id,res);
+			tot++;
+			cond_q.notify_one();
+		}
 	}
-	return 0;
 }
 
-void main(const std::vector<const char*> &args)
+fs::path Tester::getExePath(const std::string &name,bool in_path=false)
 {
-	if(args.size()>1)
-		printNote("Redundant arguments ignored.");
-	if(args.empty())
-		quitError("Missing testee code.");
-	opt.pro_name=args[0];
-
-	compileFiles();
-
-	Runner *gen_run=new Runner("Generator",opt.gen_name,opt.tl_gen,opt.ml_gen),
-		   *chk_run=new Runner("Checker",opt.chk_name,opt.tl_chk,opt.ml_chk,true),
-		   *pro_run=new Runner("Testee",opt.pro_name,opt.tl,opt.ml),
-		   *std_run=new Runner("Standard",opt.std_name,opt.tl,opt.ml);
-	gen_run->setOutputFile(opt.file+".in");
-	pro_run->setInputFile(opt.file+".in");
-	std_run->setInputFile(opt.file+".in");
-	pro_run->setOutputFile(opt.file+".out");
-	std_run->setOutputFile(opt.file+".ans");
-	chk_run->setErrorFile(opt.file+".log");
-
-	volatile bool force_quit=false;
-	static std::function<void()> tryQuit=[&]
+	bp::environment::value val(".");
+	if(in_path)
 	{
-		force_quit=true;
-		pro_run->terminate();
-		std_run->terminate();
-		gen_run->terminate();
-		chk_run->terminate();
+		auto path_value=bp::environment::get("PATH");
+		val.push_back(path_value);
+	}
+	std::unordered_map<bp::environment::key,bp::environment::value> new_env{
+		{"PATH",val}
 	};
-	std::signal(SIGINT,[](int x){ tryQuit(); });
+	return bp::environment::find_executable(name,bp::process_environment(new_env));
+}
 
-	std::vector<std::string> chk_argu{opt.file+".in",opt.file+".out",opt.file+".ans"};
-	for(std::size_t id=1;id<=opt.test_cnt;id++)
+void Tester::compileOne(const std::string &filename,const std::vector<std::string> &extra_opt,std::mutex &mtx,std::ofstream &fout)
+{
+	try
 	{
-		std::fprintf(stderr,"Testcase #%zu: ",id);
+		std::vector<std::string> compiler_opt{filename+".cpp","-o",filename};
+		compiler_opt.insert(compiler_opt.end(),extra_opt.begin(),extra_opt.end());
 
-		gen_run->start();
-		if(checkResult(gen_run)) goto bad;
-		pro_run->start();
-		std_run->start();
-		if(checkResult(pro_run)) goto bad;
-		if(checkResult(std_run)) goto bad;
-		chk_run->start(chk_argu);
-		if(checkResult(chk_run,true)) goto bad;
+		as::io_context ctx;
+		as::readable_pipe pipe(ctx);
+		bp::process proc(
+			ctx,
+			bp::environment::find_executable("g++"),
+			compiler_opt,
+			bp::process_stdio{{},{},pipe}
+		);
 
-		if(chk_run->getLastResult().type!=RunnerResult::RE)
-			printColor(TextAttr::fg_green|TextAttr::intensity,"Accepted\n");
+		std::string error_message;
+
+		boost::system::error_code ec;
+		as::read(pipe,as::dynamic_buffer(error_message),ec);
+		if(ec!=as::error::eof)
+		{
+			// TODO: error procession
+		}
+		int exit_code=proc.wait();
+		
+		std::lock_guard lock(mtx);
+		if(exit_code==0)
+		{
+			printMessage("{0}.cpp: successfully compiled\n",filename);
+			fout<<std::format("{0}.cpp: successfully compiled\ncompiler messages:\n");
+			fout<<error_message<<'\n';
+		}
 		else
 		{
-			std::ifstream inf(opt.file+".log");
-			std::string msg(256,0);
-			inf.read(msg.data(),msg.size());
-			msg.resize(inf.gcount());
-			if(msg.size()==256) msg+="...";
-			msg="Failed on testcase #"+std::to_string(id)+" (256 bytes only):\n"+msg+'\n'+
-				"See "+opt.file+".log for detail.";
-			printColor(TextAttr::fg_red|TextAttr::intensity,"Wrong Answer\n");
+			printMessage("{0}.cpp: compile error\n",filename);
+			fout<<std::format("{0}.cpp: compile error\ncompiler messages:\n");
+			fout<<error_message<<'\n';
+		}
+	}
+	catch(const std::exception& e)
+	{
+		// TODO: handle errors
+	}
+}
+
+void Tester::compileExecutables()
+{
+	std::vector<std::thread> threads;
+	std::mutex mtx;
+	std::ofstream fout("compile.log");
+
+	threads.emplace_back(Tester::compileOne,opt.exe_name,opt.compiler_opt,mtx,fout);
+	threads.emplace_back(Tester::compileOne,opt.std_name,opt.compiler_opt,mtx,fout);
+	if(opt.compile_gen)
+		threads.emplace_back(Tester::compileOne,opt.gen_name,std::vector<std::string>{},mtx,fout);
+	if(opt.compile_chk)
+		threads.emplace_back(Tester::compileOne,opt.chk_name,std::vector<std::string>{},mtx,fout);
+
+	for(auto &t: threads)
+		t.join();
+}
+
+fs::path Tester::createTempDirectory()
+{
+	fs::path res("stress-"+fs::unique_path().string());
+	boost::system::error_code ec;
+	fs::create_directory(res,ec);
+	if(ec)
+	{
+		// TODO: error procession
+	}
+	return res;
+}
+
+void Tester::handleWrongAnswer(std::size_t idx,int id)
+{
+	std::string chk_msg(256,'\0'),hint_msg;
+	std::ifstream inf(judgers[id].getLogPath());
+
+	inf.read(chk_msg.data(),chk_msg.size());
+	std::size_t sz=inf.gcount();
+	if(sz==chk_msg.size())
+		chk_msg+="...";
+	else
+		chk_msg.resize(sz);
+	hint_msg=std::format("Failed on testcase #{0} (256 bytes only):\n{1}\nSee {2}.log for detail.",idx,chk_msg,opt.file);
+
+	printColor(TextAttr::FG_RED,"Wrong Answer.\n");
 #if defined(_WIN32)
-			MessageBox(nullptr,msg.c_str(),"Oops",MB_ICONERROR);
+	MessageBox(nullptr,hint_msg.c_str(),"Oops",MB_ICONERROR);
 #elif defined(__linux__)
-			bp::system(bp::search_path("zenity"),"--error","--text="+msg);
+	as::io_context ctx;
+	bp::process msgbox(
+		ctx,
+		bp::environment::find_executable("zenity"),
+		{"--error","--title=Oops","--text",hint_msg}
+	);
+	msgbox.wait();
 #endif
+}
+
+void Tester::handleBadResult(const std::string &name,const ProcessInfo &info,std::size_t tl,std::size_t ml)
+{
+	printMessage("{} ",name);
+	switch(info.type)
+	{
+	 case ProcessInfo::TLE:
+		printColor(TextAttr::FG_YELLOW,"time limit exceeded ");
+		if(info.time_used==(std::size_t)-1)
+			printMessage(" (killed)\n");
+		else
+			printMessage(" ({0:.2}ms/{1:.2}ms)\n",info.time_used/1024.0,tl/1024.0);
+		break;
+
+	 case ProcessInfo::MLE:
+		printColor(TextAttr::FG_YELLOW,"memory limit exceeded ");
+		printMessage(" ({0:.2}MB/{1:.2}MB)\n",info.memory_used/1024.0/1024.0,ml/1024.0/1024.0);
+		break;
+
+	 case ProcessInfo::RE:
+		printColor(TextAttr::FG_RED,"runtime error");
+		printMessage(" ({})\n",info.exit_code);
+		break;
+
+	 default:
+		printColor(TextAttr::FG_PURPLE,"unknown error\n");
+	}
+}
+
+void Tester::moveFiles(int id)
+{
+	try
+	{
+		const auto &judger=judgers[id];
+
+		fs::rename(judger.getInputPath(),opt.file+".in");
+		fs::rename(judger.getOutputPath(),opt.file+".out");
+		fs::rename(judger.getAnswerPath(),opt.file+".ans");
+		fs::rename(judger.getLogPath(),opt.file+".log");
+	}
+	catch(const fs::filesystem_error &e)
+	{
+		// TODO: handle errors
+	}
+}
+
+void Tester::start()
+{
+	boost::scope::scope_exit cleanup([this] {
+		for(auto &t: threads)
+			t.join();
+		if(fs::exists(prefix))
+			fs::remove(prefix);
+	});
+
+	compileExecutables();
+
+	result_q={};
+	tot=0;
+	stop_flag=false;
+	pause_flag=false;
+
+	exe_path=getExePath(opt.exe_name),
+	std_path=getExePath(opt.std_name),
+	gen_path=getExePath(opt.gen_name,!opt.compile_gen),
+	chk_path=getExePath(opt.chk_name,!opt.compile_chk),
+	prefix=createTempDirectory();
+
+	threads.clear();
+	judgers.clear();
+	for(std::size_t i=0;i<opt.thread_cnt;i++)
+	{
+		judgers.emplace_back(std::to_string(i),prefix,exe_path,std_path,gen_path,chk_path);
+		threads.emplace_back(&Tester::judgingThread,this,i,judgers.back());
+	}
+
+	static std::function<void()> tryQuit;
+	tryQuit=[&] {
+		pause_flag=true;
+		for(auto &judger: judgers)
+			judger.terminate();
+		cond_q.notify_one();
+	};
+	std::signal(SIGINT,[](int){ tryQuit(); });
+
+	std::cerr<<std::setprecision(2)<<std::fixed;
+	for(std::size_t idx=0;!stop_flag && idx<opt.thread_cnt;idx++)
+	{
+		std::unique_lock<std::mutex> lock(mtx_q);
+		cond_q.wait(lock,[this] {
+			return !result_q.empty() || pause_flag;
+		});
+		if(pause_flag)
+		{
+			std::string res;
+			
+			printMessage(stdout,"quit testing? (y/n): ");
+			std::getline(std::cin,res);
+			if(res=="y" || res=="Y")
+			{
+				stop_flag=true;
+				cond_pause.notify_all();
+				break;
+			}
+			stop_flag=false;
+			std::signal(SIGINT,[](int){ tryQuit(); });
+			cond_pause.notify_all();
+		}
+
+		auto [id,result]=result_q.front();
+		result_q.pop();
+		lock.unlock();
+
+		printMessage("Testcase #{0}: ",idx);
+		switch(result.type)
+		{
+		 case JudgeResult::OK:
+			printColor(TextAttr::FG_GREEN,"Accepted.\n");
+			break;
+
+		 case JudgeResult::WA:
+			handleWrongAnswer(idx,id);
+			break;
+
+		 case JudgeResult::EXE_ERR:
+			handleBadResult("Testee",result.info,opt.tl,opt.ml);
+			break;
+
+		 case JudgeResult::STD_ERR:
+			handleBadResult("Standard",result.info,opt.tl,opt.ml);
+			break;
+
+		 case JudgeResult::GEN_ERR:
+			handleBadResult("Generator",result.info,opt.tl_gen,opt.ml_gen);
+			break;
+
+		 case JudgeResult::CHK_ERR:
+			handleBadResult("Checher",result.info,opt.tl_chk,opt.ml_chk);
 			break;
 		}
-		if(force_quit) // could be also enterd by goto
-		{
-			bad: if(force_quit)
-			{
-				std::fprintf(stderr,"Quit testing? (y/n): ");
-				std::string s;
-				std::getline(std::cin,s);
-				if(s=="y" || s=="Y") break;
-				force_quit=false;
-				std::signal(SIGINT,[](int x){ tryQuit(); });
-			}
-			else break;
-		}
 	}
-	delete gen_run;
-	delete pro_run;
-	delete std_run;
-	delete chk_run;
 }
-
-} // namespace Tester

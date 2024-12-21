@@ -144,9 +144,9 @@ ProcessInfo Judger::runProgram(const fs::path &target,
 							   const fs::path &ouf,
 							   const fs::path &erf)
 {
-	as::io_context io_context;
+	as::io_context ctx;
 	bp::process proc(
-		io_context,
+		ctx,
 		target,args,
 		bp::process_stdio{inf,ouf,erf},
 		bp::process_start_dir{prefix}
@@ -159,8 +159,8 @@ JudgeResult Judger::judge()
 	stopped=false;
 
 	ProcessInfo gen_info=runProgram(
-		gen_path,{},
-		opt.tl_gen,opt.ml_gen,
+		gen_path,opt.gen_opt,
+		opt.tl_gen,opt.ml_gen*1024*1024,
 		prefix,null_path,input_path,null_path
 	);
 	if(stopped)
@@ -170,7 +170,7 @@ JudgeResult Judger::judge()
 
 	ProcessInfo exe_info=runProgram(
 		exe_path,{},
-		opt.tl,opt.ml,
+		opt.tl,opt.ml*1024*1024,
 		prefix,input_path,output_path,null_path
 	);
 	if(stopped)
@@ -179,18 +179,18 @@ JudgeResult Judger::judge()
 		return JudgeResult{JudgeResult::EXE_ERR,exe_info};
 
 	ProcessInfo std_info=runProgram(
-		std,{},
-		opt.tl,opt.ml,
+		std_path,{},
+		opt.tl,opt.ml*1024*1024,
 		prefix,input_path,answer_path,null_path
 	);
 	if(stopped)
 		return JudgeResult{JudgeResult::TERM};
 	else if(std_info.type!=ProcessInfo::OK)
-		return JudgeResult{JudgeResult::STD_ERR,std_inf_patho};
+		return JudgeResult{JudgeResult::STD_ERR,std_info};
 
 	ProcessInfo chk_info=runProgram(
 		chk_path,{input_path.string(),output_path.string(),answer_path.string()},
-		opt.tl_chk,opt.ml_chk,
+		opt.tl_chk,opt.ml_chk*1024*1024,
 		prefix,null_path,null_path,log_path
 	);
 	if(stopped)
@@ -204,26 +204,16 @@ JudgeResult Judger::judge()
 }
 
 void Judger::terminate()
-{
-	stopped=true;
-}
+{ stopped=true; }
 
-fs::path Judger::getInputPath()
-{
-	return input_path;
-}
+fs::path Judger::getInputPath()const
+{ return input_path; }
 
-fs::path Judger::getOutputPath()
-{
-	return output_path;
-}
+fs::path Judger::getOutputPath()const
+{ return output_path; }
 
-fs::path Judger::getAnswerPath()
-{
-	return answer_path;
-}
+fs::path Judger::getAnswerPath()const
+{ return answer_path; }
 
-fs::path Judger::getLogPath()
-{
-	return log_path;
-}
+fs::path Judger::getLogPath()const
+{ return log_path; }

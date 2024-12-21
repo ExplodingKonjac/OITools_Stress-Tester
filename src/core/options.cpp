@@ -1,5 +1,7 @@
 #include "options.h"
 
+namespace po=boost::program_options;
+
 Options::Options():
 	run_type(NONE),
 	file("data"),
@@ -8,9 +10,10 @@ Options::Options():
 	gen_name("gen"),
 	chk_name("chk-wcmp"),
 	compiler_opt{"-std=c++17","-O2"},
-	tl(1000),ml(512_MB),
-	tl_gen(5000),ml_gen(2048_MB),
-	tl_chk(5000),ml_chk(2048_MB),
+	gen_opt{},
+	tl(1000),ml(512),
+	tl_gen(5000),ml_gen(2048),
+	tl_chk(5000),ml_chk(2048),
 	test_cnt(SIZE_MAX),
 	thread_cnt(1),
 	compile_gen(true),compile_chk(false)
@@ -18,117 +21,43 @@ Options::Options():
 
 Options opt{};
 
-static const option long_opts[]={
-	{"file",required_argument,0,'f'},
-	{"std",required_argument,0,'s'},
-	{"gen",required_argument,0,'g'},
-	{"chk",required_argument,0,'c'},
-	{"time-limit",required_argument,0,'T'},
-	{"memory-limit",required_argument,0,'M'},
-	{"tl-gen",required_argument,0,501},
-	{"ml-gen",required_argument,0,502},
-	{"tl-chk",required_argument,0,503},
-	{"ml-chk",required_argument,0,504},
-	{"compile-opt",required_argument,0,'p'},
-	{"count",required_argument,0,'n'},
-	{"compile-gen",optional_argument,0,505},
-	{"compile-chk",optional_argument,0,506},
-	{"version",no_argument,0,'v'},
-	{"help",no_argument,0,507},
-	{"test",no_argument,0,508},
-	{"clean",no_argument,0,509},
-	{nullptr,0,0,0}
-};
-static const char short_opts[]=
-	":f:s:g:c:T:M:p:n:v"
-;
-void parseOptions(int argc,char *argv[])
+void Options::parse(int argc,char *argv[])
 {
-	std::istringstream is;
-	is>>std::boolalpha;
-	auto convert=[&](auto &res,const char *val)
-	{
-		is.clear();
-		is.str(val);
-		is>>res;
-		if(is.fail())
-			quitError("Failed to read value '%s' for option '%s'.",val,argv[optind-1]);
-	};
-	int arg,idx,lstind=optind;
-	opterr=0;
-	while(~(arg=getopt_long(argc,argv,short_opts,long_opts,&idx)))
-	{
-		switch(arg)
-		{
-		 case 'v':
-			opt.run_type=Options::VERSION;
-			break;
-		 case 507:
-		 	opt.run_type=Options::HELP;
-			break;
-		 case 508:
-			opt.run_type=Options::TEST;
-			break;
-		 case 509:
-			opt.run_type=Options::CLEAN;
-			break;
-		 case 'f':
-			opt.file=optarg;
-			break;
-		 case 's':
-		 	opt.std_name=optarg;
-			break;
-		 case 'g':
-		 	opt.gen_name=optarg;
-			break;
-		 case 'c':
-			opt.chk_name=optarg;
-			break;
-		 case 'T':
-			convert(opt.tl,optarg);
-			break;
-		 case 'M':
-			convert(opt.ml,optarg);
-			opt.ml<<=20;
-			break;
-		 case 'p':
-			opt.compiler_opt=optarg;
-			break;
-		 case 'n':
-		 	if(!strcmp(optarg,"infinite"))
-				opt.test_cnt=-1;
-			else
-				convert(opt.test_cnt,optarg);
-			break;
-		 case 501:
-			convert(opt.tl_gen,optarg);
-			break;
-		 case 502:
-			convert(opt.ml_gen,optarg);
-			break;
-		 case 503:
-			convert(opt.tl_chk,optarg);
-			break;
-		 case 504:
-			convert(opt.ml_chk,optarg);
-			break;
-		 case 505:
-			if(!optarg)
-				opt.compile_gen=true;
-			else
-				convert(opt.compile_gen,optarg);
-			break;
-		 case 506:
-			if(!optarg)
-				opt.compile_chk=true;
-			else
-				convert(opt.compile_chk,optarg);
-			break;
-		 case ':':
-			quitError("Missing argument for '%s'.\nRun 'oit-stress --help' to get help.",argv[lstind]);
-		 case '?':
-			quitError("Unknown option '%s'.\nRun 'oit-stress --help' to get help.",argv[lstind]);
-		}
-		lstind=optind;
-	}
+	po::options_description generic_desc("Generic options");
+	generic_desc.add_options()
+		("help,h",po::value<std::string>()->default_value("generic"),"get help information")
+		("version","get version information")
+	;
+	po::options_description hidden_desc("Hidden options");
+	hidden_desc.add_options()
+		("arguments","positional arguments")
+	;
+	po::positional_options_description positional_desc{};
+	positional_desc.add("arguments",-1);
+
+	po::options_description test_desc("`test' command options");
+	test_desc.add_options()
+		("file,f",po::value<std::string>()->default_value("data"))
+		("std,s",po::value<std::string>()->default_value("std"))
+		("gen,g",po::value<std::string>()->default_value("gen"))
+		("chk,c",po::value<std::string>()->default_value("chk-wcmp"))
+		("tl,T",po::value<std::size_t>()->default_value(1000))
+		("ml,M",po::value<std::size_t>()->default_value(512))
+		("tl-gen",po::value<std::size_t>()->default_value(5000))
+		("ml-gen",po::value<std::size_t>()->default_value(2048))
+		("tl-chk",po::value<std::size_t>()->default_value(5000))
+		("ml-chk",po::value<std::size_t>()->default_value(2048))
+		("compiler-opt,C",po::value<std::vector<std::string>>())
+		("gen-opt,G",po::value<std::vector<std::string>>())
+		("test-count,n",po::value<std::string>()->default_value("infinity"))
+		("jobs,j",po::value<std::size_t>()->default_value(1))
+		("compile-gen",po::bool_switch()->default_value(true))
+		("compile-chk",po::bool_switch()->default_value(false))
+	;
+	po::options_description all_desc("All options");
+	all_desc.add(generic_desc).add(hidden_desc).add(test_desc);
+
+	po::variables_map vm;
+	po::store(po::command_line_parser(argc,argv).options(all_desc).positional(positional_desc).run(),vm);
+	vm.notify();
 }

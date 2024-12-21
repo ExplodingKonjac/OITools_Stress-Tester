@@ -1,118 +1,115 @@
 #pragma once
 
 #include <format>
-#include <cstdio>
+#include <iostream>
 
-enum class TextAttr: int
+struct TextAttr
 {
-	PLAIN     = 0,
-	FG_BLACK  = 1<<0,
-	FG_RED    = 1<<1,
-	FG_GREEN  = 1<<2,
-	FG_YELLOW = 1<<3,
-	FG_BLUE   = 1<<4,
-	FG_PURPLE = 1<<5,
-	FG_CYAN   = 1<<6,
-	FG_WHITE  = 1<<7,
-	BG_BLACK  = 1<<8,
-	BG_RED    = 1<<9,
-	BG_GREEN  = 1<<10,
-	BG_YELLOW = 1<<11,
-	BG_BLUE   = 1<<12,
-	BG_PURPLE = 1<<13,
-	BG_CYAN   = 1<<14,
-	BG_WHITE  = 1<<15,
-	INTENSITY = 1<<16,
+	enum Mask: int
+	{
+		CLEAR=1<<0,
+		FOREGROUND=1<<1,
+		BACKGROUND=1<<2,
+		BOLD=1<<3,
+		ITALIC=1<<4,
+		UNDERLINE=1<<5,
+		STRIKE=1<<6
+	};
+	std::uint8_t foreground,background;
+	bool bold:1,italic:1,underline:1,strike:1;
 };
 
-#define DEF_OP(op) \
-inline TextAttr operator op(TextAttr lhs,TextAttr rhs) \
-{ return TextAttr(static_cast<int>(lhs) op static_cast<int>(rhs)); } \
-inline TextAttr operator op##=(TextAttr &lhs,TextAttr rhs) \
-{ return lhs=lhs op rhs; }
-DEF_OP(&)
-DEF_OP(|)
-DEF_OP(^)
-#undef DEF_OP
-inline TextAttr operator ~(TextAttr lhs)
-{ return TextAttr(~static_cast<int>(lhs)); }
+inline constexpr TextAttr::Mask operator &(TextAttr::Mask a,TextAttr::Mask b)
+{ return TextAttr::Mask(static_cast<int>(a)&static_cast<int>(b)); }
 
-template<typename ...Args>
-inline void setTextAttr(FILE *stream,TextAttr attr)
+inline constexpr TextAttr::Mask operator |(TextAttr::Mask a,TextAttr::Mask b)
+{ return TextAttr::Mask(static_cast<int>(a)|static_cast<int>(b)); }
+
+inline constexpr TextAttr::Mask operator ^(TextAttr::Mask a,TextAttr::Mask b)
+{ return TextAttr::Mask(static_cast<int>(a)^static_cast<int>(b)); }
+
+inline constexpr TextAttr::Mask operator ~(TextAttr::Mask a)
+{ return TextAttr::Mask(~static_cast<int>(a)); }
+
+inline constexpr TextAttr::Mask &operator &=(TextAttr::Mask &a,TextAttr::Mask b)
+{ return a=a&b; }
+
+inline constexpr TextAttr::Mask &operator |=(TextAttr::Mask &a,TextAttr::Mask b)
+{ return a=a|b; }
+
+inline constexpr TextAttr::Mask &operator ^=(TextAttr::Mask &a,TextAttr::Mask b)
+{ return a=a^b; }
+
+inline constexpr std::string ansi(TextAttr::Mask mask,const TextAttr &attr)
 {
-	int S=static_cast<int>(attr);
+	if(mask&TextAttr::CLEAR) return "\e[0m";
+	std::string res("\e[");
+	if(mask&TextAttr::FOREGROUND)
+		res+=std::format("38;5;{0};",attr.foreground);
+	if(mask&TextAttr::BACKGROUND)
+		res+=std::format("48;5;{0};",attr.background);
+	if(mask&TextAttr::BOLD)
+		res+=std::format("{0};",attr.bold?1:22);
+	if(mask&TextAttr::ITALIC)
+		res+=std::format("{0};",attr.italic?3:23);
+	if(mask&TextAttr::UNDERLINE)
+		res+=std::format("{0};",attr.underline?4:24);
+	if(mask&TextAttr::STRIKE)
+		res+=std::format("{0};",attr.strike?9:29);
+	res.back()='m';
+	return res;
+}
 
-#if defined(_WIN32)
-	WORD mask=0;
-	if((S&0x1ffff)==0)
-		mask=FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE;
-	if(S&0x00ff)
+class MessageStream
+{
+ private:
+	std::ostream *stream;
+
+ public:
+	MessageStream(std::ostream *target):
+		stream(target)
+	{}
+
+	void setTextAttr(TextAttr::Mask mask,const TextAttr &attr)
 	{
-		int k=__builtin_ctz(S&0x00ff);
-		if(k&1) mask|=FOREGROUND_RED;
-		if(k&2) mask|=FOREGROUND_GREEN;
-		if(k&4) mask|=FOREGROUND_BLUE;
+		(*stream)<<ansi(mask,attr);
 	}
-	if(S&0xff00)
+
+	template<typename ...Args>
+	void print(const std::format_string<Args...> &fmt,Args &&...args)
 	{
-		int k=__builtin_ctz(S&0xff00)-8;
-		if(k&1) mask|=BACKGROUND_RED;
-		if(k&2) mask|=BACKGROUND_GREEN;
-		if(k&4) mask|=BACKGROUND_BLUE;
+		(*stream)<<std::format(fmt,std::forward<Args&&>(args)...);
 	}
-	if(S&(1<<16))
-		mask|=FOREGROUND_INTENSITY;
 
-	HANDLE h=nullptr;
-	if(stream==stderr)
-		h=GetStdHandle(STD_OUTPUT_HANDLE);
-	else if(stream==stdout)
-		h=GetStdHandle(STD_ERROR_HANDLE);
-	SetConsoleTextAttribute(h,mask);
+	template<typename ...Args>
+	void print(TextAttr::Mask mask,const TextAttr &attr,const std::format_string<Args...> &fmt,Args &&...args)
+	{
+		setTextAttr(mask,attr);
+		(*stream)<<std::format(fmt,std::forward<Args&&>(args)...);
+		setTextAttr(TextAttr::CLEAR,{});
+	}
 
-#elif defined(__linux__)
-	std::string str("\e[");
+	template<typename ...Args>
+	void error(const std::format_string<Args...> &fmt,Args &&...args)
+	{
+		print(TextAttr::FOREGROUND|TextAttr::BOLD,TextAttr{.foreground=9,.bold=true},"error: ");
+		stream<<std::format(fmt,std::forward<Args&&>(args)...)<<std::endl;
+	}
 
-	if((S&0x1ffff)==0)
-		(str+=std::to_string(0))+=';';
-	if(S&(1<<16))
-		(str+=std::to_string(1))+=';';
-	if(S&0x00ff)
-		(str+=std::to_string(__builtin_ctz(S&0x00ff)+30))+=';';
-	if(S&0xff00)
-		(str+=std::to_string(__builtin_ctz(S&0xff00)-8+40))+=';';
-	str.back()='m';
+	template<typename ...Args>
+	void fatal(const std::format_string<Args...> &fmt,Args &&...args)
+	{
+		print(TextAttr::FOREGROUND|TextAttr::BOLD,TextAttr{.foreground=9,.bold=true},"fatal error: ");
+		stream<<std::format(fmt,std::forward<Args&&>(args)...)<<std::endl;
+	}
 
-	std::fputs(str.c_str(),stream);
+	template<typename ...Args>
+	void note(const std::format_string<Args...> &fmt,Args &&...args)
+	{
+		print(TextAttr::FOREGROUND|TextAttr::BOLD,TextAttr{.foreground=14,.bold=true},"note: ");
+		stream<<std::format(fmt,std::forward<Args&&>(args)...)<<std::endl;
+	}
+};
 
-#else
-#error "setTextAttr is not supported."
-#endif
-}
-
-template<typename ...Args>
-inline void printMessage(FILE *stream,const std::format_string<Args...> &fmt,Args &&...args)
-{
-	std::fputs(std::format(fmt,std::forward<Args&&>(args)...).c_str(),stream);
-	std::fflush(stream);
-}
-
-template<typename ...Args>
-inline void printMessage(const std::format_string<Args...> &fmt,Args &&...args)
-{
-	printMessage(stderr,fmt,std::forward<Args&&>(args)...);
-}
-
-template<typename ...Args>
-inline void printColor(FILE *stream,TextAttr attr,const std::format_string<Args...> &fmt,Args &&...args)
-{
-	setTextAttr(stream,attr);
-	printMessage(stream,fmt,std::forward<Args&&>(args)...);
-}
-
-template<typename ...Args>
-inline void printColor(TextAttr attr,const std::format_string<Args...> &fmt,Args &&...args)
-{
-	printColor(stderr,fmt,std::forward<Args&&>(args)...);
-}
-
+inline MessageStream msg(&std::cout);
+inline MessageStream err(&std::cerr);

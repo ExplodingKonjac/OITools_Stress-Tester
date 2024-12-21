@@ -1,4 +1,4 @@
-#include "tester_new.h"
+#include "tester.h"
 
 namespace bp=boost::process::v2;
 namespace as=boost::asio;
@@ -7,8 +7,23 @@ namespace fs=boost::filesystem;
 Tester::Tester()
 {}
 
-void Tester::judgingThread(int id,Judger &judger)
+Tester::~Tester()
 {
+	for(auto &t: threads)
+		if(t.joinable())
+			t.join();
+	if(fs::exists(prefix))
+	{
+		boost::system::error_code ec;
+		fs::remove(prefix,ec);
+		if(ec)
+			msg.error("failed to remove temp directory ({0}): {1}",ec.value(),ec.message());
+	}
+}
+
+void Tester::judgingThread(int id)
+{
+	Judger &judger=judgers[id];
 	while(!stop_flag && tot<opt.test_cnt)
 	{
 		JudgeResult res=judger.judge();
@@ -41,7 +56,7 @@ fs::path Tester::getExePath(const std::string &name,bool in_path=false)
 	return bp::environment::find_executable(name,bp::process_environment(new_env));
 }
 
-void Tester::compileOne(const std::string &filename,const std::vector<std::string> &extra_opt,std::mutex &mtx,std::ofstream &fout)
+void Tester::compileOne(const std::string &filename,const std::vector<std::string> &extra_opt,std::mutex &mtx,std::ofstream &fout,std::exception_ptr &ep)
 {
 	try
 	{
@@ -58,32 +73,34 @@ void Tester::compileOne(const std::string &filename,const std::vector<std::strin
 		);
 
 		std::string error_message;
-
 		boost::system::error_code ec;
 		as::read(pipe,as::dynamic_buffer(error_message),ec);
-		if(ec!=as::error::eof)
-		{
-			// TODO: error procession
-		}
+
 		int exit_code=proc.wait();
-		
+
 		std::lock_guard lock(mtx);
 		if(exit_code==0)
 		{
-			printMessage("{0}.cpp: successfully compiled\n",filename);
+			msg.print("{0}.cpp: successfully compiled\n",filename);
 			fout<<std::format("{0}.cpp: successfully compiled\ncompiler messages:\n");
 			fout<<error_message<<'\n';
 		}
 		else
 		{
-			printMessage("{0}.cpp: compile error\n",filename);
+			msg.print("{0}.cpp: compile error\n",filename);
 			fout<<std::format("{0}.cpp: compile error\ncompiler messages:\n");
 			fout<<error_message<<'\n';
+			ep=std::make_exception_ptr(std::runtime_error(
+				std::format("compile error on {0}.cpp",filename)
+			));
 		}
 	}
 	catch(const std::exception& e)
 	{
-		// TODO: handle errors
+		std::lock_guard lock(mtx);
+		ep=std::make_exception_ptr(std::runtime_error(
+			std::format("failed when compiling {0}.cpp: {1}",filename,e.what())
+		));
 	}
 }
 
@@ -92,16 +109,23 @@ void Tester::compileExecutables()
 	std::vector<std::thread> threads;
 	std::mutex mtx;
 	std::ofstream fout("compile.log");
+	std::exception_ptr ep;
 
-	threads.emplace_back(Tester::compileOne,opt.exe_name,opt.compiler_opt,mtx,fout);
-	threads.emplace_back(Tester::compileOne,opt.std_name,opt.compiler_opt,mtx,fout);
+	auto addone=[&](const std::string &name,const std::vector<std::string> &opt) {
+		std::thread t(&Tester::compileOne,name,opt,mtx,fout,ep);
+		threads.push_back(std::move(t));
+	};
+
+	addone(opt.exe_name,opt.compiler_opt);
+	addone(opt.std_name,opt.compiler_opt);
 	if(opt.compile_gen)
-		threads.emplace_back(Tester::compileOne,opt.gen_name,std::vector<std::string>{},mtx,fout);
+		addone(opt.gen_name,{});
 	if(opt.compile_chk)
-		threads.emplace_back(Tester::compileOne,opt.chk_name,std::vector<std::string>{},mtx,fout);
-
+		addone(opt.chk_name,{});
 	for(auto &t: threads)
 		t.join();
+
+	if(ep) std::rethrow_exception(ep);
 }
 
 fs::path Tester::createTempDirectory()
@@ -110,9 +134,9 @@ fs::path Tester::createTempDirectory()
 	boost::system::error_code ec;
 	fs::create_directory(res,ec);
 	if(ec)
-	{
-		// TODO: error procession
-	}
+		throw std::runtime_error(
+			std::format("failed to create temp directory ({0}): {1}",ec.value(),ec.message())
+		);
 	return res;
 }
 
@@ -124,12 +148,11 @@ void Tester::handleWrongAnswer(std::size_t idx,int id)
 	inf.read(chk_msg.data(),chk_msg.size());
 	std::size_t sz=inf.gcount();
 	if(sz==chk_msg.size())
-		chk_msg+="...";
+		hint_msg=std::format("Failed on testcase #{0} (256 bytes only):\n{1}...\nSee {2}.log for detail.",idx,chk_msg,opt.file);
 	else
-		chk_msg.resize(sz);
-	hint_msg=std::format("Failed on testcase #{0} (256 bytes only):\n{1}\nSee {2}.log for detail.",idx,chk_msg,opt.file);
+		hint_msg=std::format("Failed on testcase #{0}:\n{1}",idx,chk_msg,opt.file);
 
-	printColor(TextAttr::FG_RED,"Wrong Answer.\n");
+	msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=9},"Wrong Answer.\n");
 #if defined(_WIN32)
 	MessageBox(nullptr,hint_msg.c_str(),"Oops",MB_ICONERROR);
 #elif defined(__linux__)
@@ -145,58 +168,50 @@ void Tester::handleWrongAnswer(std::size_t idx,int id)
 
 void Tester::handleBadResult(const std::string &name,const ProcessInfo &info,std::size_t tl,std::size_t ml)
 {
-	printMessage("{} ",name);
+	msg.print("{} ",name);
 	switch(info.type)
 	{
 	 case ProcessInfo::TLE:
-		printColor(TextAttr::FG_YELLOW,"time limit exceeded ");
+		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=11},"time limit exceeded ");
 		if(info.time_used==(std::size_t)-1)
-			printMessage(" (killed)\n");
+			msg.print(" (killed)\n");
 		else
-			printMessage(" ({0:.2}ms/{1:.2}ms)\n",info.time_used/1024.0,tl/1024.0);
+			msg.print(" ({0:.2}ms/{1:.2}ms)\n",info.time_used/1024.0,tl/1024.0);
 		break;
 
 	 case ProcessInfo::MLE:
-		printColor(TextAttr::FG_YELLOW,"memory limit exceeded ");
-		printMessage(" ({0:.2}MB/{1:.2}MB)\n",info.memory_used/1024.0/1024.0,ml/1024.0/1024.0);
+		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=11},"memory limit exceeded ");
+		msg.print(" ({0:.2}MB/{1:.2}MB)\n",info.memory_used/1024.0/1024.0,ml/1024.0/1024.0);
 		break;
 
 	 case ProcessInfo::RE:
-		printColor(TextAttr::FG_RED,"runtime error");
-		printMessage(" ({})\n",info.exit_code);
+		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=9},"runtime error");
+		msg.print(" ({})\n",info.exit_code);
 		break;
 
 	 default:
-		printColor(TextAttr::FG_PURPLE,"unknown error\n");
+		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=5},"unknown error\n");
 	}
 }
 
 void Tester::moveFiles(int id)
 {
-	try
-	{
-		const auto &judger=judgers[id];
+	auto tryMove=[&](const fs::path &from,const fs::path &to) {
+		boost::system::error_code ec;
+		fs::rename(from,to,ec);
+		if(ec)
+			err.error("failed to get {0} ({1}): {2}",to.filename(),ec.value(),ec.message());
+	};
 
-		fs::rename(judger.getInputPath(),opt.file+".in");
-		fs::rename(judger.getOutputPath(),opt.file+".out");
-		fs::rename(judger.getAnswerPath(),opt.file+".ans");
-		fs::rename(judger.getLogPath(),opt.file+".log");
-	}
-	catch(const fs::filesystem_error &e)
-	{
-		// TODO: handle errors
-	}
+	const Judger &judger=judgers[id];
+	tryMove(judger.getInputPath(),opt.file+".in");
+	tryMove(judger.getOutputPath(),opt.file+".out");
+	tryMove(judger.getAnswerPath(),opt.file+".ans");
+	tryMove(judger.getLogPath(),opt.file+".log");
 }
 
 void Tester::start()
 {
-	boost::scope::scope_exit cleanup([this] {
-		for(auto &t: threads)
-			t.join();
-		if(fs::exists(prefix))
-			fs::remove(prefix);
-	});
-
 	compileExecutables();
 
 	result_q={};
@@ -213,10 +228,9 @@ void Tester::start()
 	threads.clear();
 	judgers.clear();
 	for(std::size_t i=0;i<opt.thread_cnt;i++)
-	{
 		judgers.emplace_back(std::to_string(i),prefix,exe_path,std_path,gen_path,chk_path);
-		threads.emplace_back(&Tester::judgingThread,this,i,judgers.back());
-	}
+	for(std::size_t i=0;i<opt.thread_cnt;i++)
+		threads.emplace_back(&Tester::judgingThread,this,i);
 
 	static std::function<void()> tryQuit;
 	tryQuit=[&] {
@@ -227,7 +241,6 @@ void Tester::start()
 	};
 	std::signal(SIGINT,[](int){ tryQuit(); });
 
-	std::cerr<<std::setprecision(2)<<std::fixed;
 	for(std::size_t idx=0;!stop_flag && idx<opt.thread_cnt;idx++)
 	{
 		std::unique_lock<std::mutex> lock(mtx_q);
@@ -238,7 +251,7 @@ void Tester::start()
 		{
 			std::string res;
 			
-			printMessage(stdout,"quit testing? (y/n): ");
+			msg.print("quit testing? (y/n): ");
 			std::getline(std::cin,res);
 			if(res=="y" || res=="Y")
 			{
@@ -255,11 +268,11 @@ void Tester::start()
 		result_q.pop();
 		lock.unlock();
 
-		printMessage("Testcase #{0}: ",idx);
+		msg.print("Testcase #{0}: ",idx);
 		switch(result.type)
 		{
 		 case JudgeResult::OK:
-			printColor(TextAttr::FG_GREEN,"Accepted.\n");
+			msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=10},"Accepted.\n");
 			break;
 
 		 case JudgeResult::WA:

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lib.hpp"
+#include "message.hpp"
 #include <getopt.h>
 
 struct Options

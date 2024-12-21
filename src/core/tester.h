@@ -1,6 +1,7 @@
 #pragma once
 
-#include "defines.hpp"
+#include "config.hpp"
+
 #include "message.hpp"
 #include "options.h"
 #include "judger.h"
@@ -9,11 +10,14 @@
 #include <boost/asio.hpp>
 #include <boost/scope/scope_exit.hpp>
 
+#include <csignal>
 #include <mutex>
-#include <iostream>
+#include <fstream>
 #include <format>
 #include <memory>
 #include <functional>
+#include <queue>
+#include <exception>
 
 namespace bp=boost::process::v2;
 namespace as=boost::asio;
@@ -31,16 +35,17 @@ class Tester
 	std::vector<Judger> judgers;
 	bool stop_flag,pause_flag;
 
-	static void compileOne(const std::string &filename,const std::vector<std::string> &extra_opt,std::mutex &mtx,std::ofstream &fout);
+	static void compileOne(const std::string &filename,const std::vector<std::string> &extra_opt,std::mutex &mtx,std::ofstream &fout,std::exception_ptr &ep);
 	static fs::path getExePath(const std::string &name,bool in_path=false);
 	static void compileExecutables();
 	static fs::path createTempDirectory();
-	void judgingThread(int id,Judger &judger);
+	void judgingThread(int id);
 	void handleWrongAnswer(std::size_t idx,int id);
 	void handleBadResult(const std::string &name,const ProcessInfo &info,std::size_t tl,std::size_t ml);
 	void moveFiles(int id);
 
  public:
 	Tester();
+	~Tester();
 	void start();
 };

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "defines.hpp"
+#include "config.hpp"
+
 #include "options.h"
 
 #include <boost/process.hpp>

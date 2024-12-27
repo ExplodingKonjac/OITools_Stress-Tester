@@ -1,11 +1,16 @@
 #pragma once
 
+#include "config.hpp"
+#include "message.hpp"
 #include "options.h"
 
-namespace Cleaner
+#include <boost/filesystem.hpp>
+
+class Cleaner
 {
+ private:
+	void tryDelete(const std::string &name);
 
-void tryDelete(const std::string &name);
-void main(const std::vector<const char*> &args);
-
-} // namespace Cleaner
+ public:
+	void start();
+};

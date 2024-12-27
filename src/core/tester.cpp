@@ -15,13 +15,13 @@ Tester::~Tester()
 	if(fs::exists(prefix))
 	{
 		boost::system::error_code ec;
-		fs::remove(prefix,ec);
+		fs::remove_all(prefix,ec);
 		if(ec)
 			msg.error("failed to remove temp directory ({0}): {1}",ec.value(),ec.message());
 	}
 }
 
-void Tester::judgingThread(int id)
+void Tester::judgingThread(std::size_t id)
 {
 	Judger &judger=judgers[id];
 	while(!stop_flag && tot<opt.test_cnt)
@@ -31,10 +31,10 @@ void Tester::judgingThread(int id)
 		cond_pause.wait(lock,[this] {
 			return !pause_flag;
 		});
-		if(!stop_flag)
+		if(!stop_flag && res.type!=JudgeResult::TERM)
 		{
 			if(res.type!=JudgeResult::OK)
-				stop_flag=true;
+				stop_flag.store(true);
 			result_q.emplace(id,res);
 			tot++;
 			cond_q.notify_one();
@@ -42,18 +42,15 @@ void Tester::judgingThread(int id)
 	}
 }
 
-fs::path Tester::getExePath(const std::string &name,bool in_path=false)
+fs::path Tester::getExePath(const std::string &name,bool in_path)
 {
-	bp::environment::value val(".");
+	bp::environment::value val(fs::current_path().string());
 	if(in_path)
-	{
-		auto path_value=bp::environment::get("PATH");
-		val.push_back(path_value);
-	}
+		val.push_back(bp::environment::get("PATH"));
 	std::unordered_map<bp::environment::key,bp::environment::value> new_env{
 		{"PATH",val}
 	};
-	return bp::environment::find_executable(name,bp::process_environment(new_env));
+	return bp::environment::find_executable(name,new_env);
 }
 
 void Tester::compileOne(const std::string &filename,const std::vector<std::string> &extra_opt,std::mutex &mtx,std::ofstream &fout,std::exception_ptr &ep)
@@ -82,13 +79,13 @@ void Tester::compileOne(const std::string &filename,const std::vector<std::strin
 		if(exit_code==0)
 		{
 			msg.print("{0}.cpp: successfully compiled\n",filename);
-			fout<<std::format("{0}.cpp: successfully compiled\ncompiler messages:\n");
+			fout<<std::format("{0}.cpp: successfully compiled\ncompiler messages:\n",filename);
 			fout<<error_message<<'\n';
 		}
 		else
 		{
 			msg.print("{0}.cpp: compile error\n",filename);
-			fout<<std::format("{0}.cpp: compile error\ncompiler messages:\n");
+			fout<<std::format("{0}.cpp: compile error\ncompiler messages:\n",filename);
 			fout<<error_message<<'\n';
 			ep=std::make_exception_ptr(std::runtime_error(
 				std::format("compile error on {0}.cpp",filename)
@@ -112,8 +109,7 @@ void Tester::compileExecutables()
 	std::exception_ptr ep;
 
 	auto addone=[&](const std::string &name,const std::vector<std::string> &opt) {
-		std::thread t(&Tester::compileOne,name,opt,mtx,fout,ep);
-		threads.push_back(std::move(t));
+		threads.emplace_back(&Tester::compileOne,name,opt,std::ref(mtx),std::ref(fout),std::ref(ep));
 	};
 
 	addone(opt.exe_name,opt.compiler_opt);
@@ -130,7 +126,7 @@ void Tester::compileExecutables()
 
 fs::path Tester::createTempDirectory()
 {
-	fs::path res("stress-"+fs::unique_path().string());
+	fs::path res(".stress-"+fs::unique_path().string());
 	boost::system::error_code ec;
 	fs::create_directory(res,ec);
 	if(ec)
@@ -140,7 +136,7 @@ fs::path Tester::createTempDirectory()
 	return res;
 }
 
-void Tester::handleWrongAnswer(std::size_t idx,int id)
+void Tester::handleWrongAnswer(std::size_t idx,std::size_t id)
 {
 	std::string chk_msg(256,'\0'),hint_msg;
 	std::ifstream inf(judgers[id].getLogPath());
@@ -152,7 +148,7 @@ void Tester::handleWrongAnswer(std::size_t idx,int id)
 	else
 		hint_msg=std::format("Failed on testcase #{0}:\n{1}",idx,chk_msg,opt.file);
 
-	msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=9},"Wrong Answer.\n");
+	msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=9},"Wrong Answer\n");
 #if defined(_WIN32)
 	MessageBox(nullptr,hint_msg.c_str(),"Oops",MB_ICONERROR);
 #elif defined(__linux__)
@@ -168,11 +164,10 @@ void Tester::handleWrongAnswer(std::size_t idx,int id)
 
 void Tester::handleBadResult(const std::string &name,const ProcessInfo &info,std::size_t tl,std::size_t ml)
 {
-	msg.print("{} ",name);
 	switch(info.type)
 	{
 	 case ProcessInfo::TLE:
-		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=11},"time limit exceeded ");
+		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=11},"{0} time limit exceeded ",name);
 		if(info.time_used==(std::size_t)-1)
 			msg.print(" (killed)\n");
 		else
@@ -180,27 +175,28 @@ void Tester::handleBadResult(const std::string &name,const ProcessInfo &info,std
 		break;
 
 	 case ProcessInfo::MLE:
-		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=11},"memory limit exceeded ");
+		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=11},"{0} memory limit exceeded ",name);
 		msg.print(" ({0:.2}MB/{1:.2}MB)\n",info.memory_used/1024.0/1024.0,ml/1024.0/1024.0);
 		break;
 
 	 case ProcessInfo::RE:
-		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=9},"runtime error");
+		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=9},"{0} runtime error",name);
 		msg.print(" ({})\n",info.exit_code);
 		break;
 
 	 default:
-		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=5},"unknown error\n");
+		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=5},"{0} unknown error\n",name);
 	}
 }
 
-void Tester::moveFiles(int id)
+void Tester::moveFiles(std::size_t id)
 {
 	auto tryMove=[&](const fs::path &from,const fs::path &to) {
 		boost::system::error_code ec;
+		if(fs::exists(to) && fs::is_regular_file(to))
+			fs::remove(to,ec);
 		fs::rename(from,to,ec);
-		if(ec)
-			err.error("failed to get {0} ({1}): {2}",to.filename(),ec.value(),ec.message());
+		if(ec) msg.error("failed to get {0} ({1}): {2}",to.filename().string(),ec.value(),ec.message());
 	};
 
 	const Judger &judger=judgers[id];
@@ -216,13 +212,13 @@ void Tester::start()
 
 	result_q={};
 	tot=0;
-	stop_flag=false;
-	pause_flag=false;
+	stop_flag.store(false);
+	pause_flag.store(false);
 
-	exe_path=getExePath(opt.exe_name),
-	std_path=getExePath(opt.std_name),
-	gen_path=getExePath(opt.gen_name,!opt.compile_gen),
-	chk_path=getExePath(opt.chk_name,!opt.compile_chk),
+	exe_path=getExePath(opt.exe_name);
+	std_path=getExePath(opt.std_name);
+	gen_path=getExePath(opt.gen_name,!opt.compile_gen);
+	chk_path=getExePath(opt.chk_name,!opt.compile_chk);
 	prefix=createTempDirectory();
 
 	threads.clear();
@@ -234,14 +230,15 @@ void Tester::start()
 
 	static std::function<void()> tryQuit;
 	tryQuit=[&] {
-		pause_flag=true;
+		pause_flag.store(true);
 		for(auto &judger: judgers)
 			judger.terminate();
 		cond_q.notify_one();
 	};
 	std::signal(SIGINT,[](int){ tryQuit(); });
 
-	for(std::size_t idx=0;!stop_flag && idx<opt.thread_cnt;idx++)
+	std::size_t idx=0;
+	while(!stop_flag && idx<opt.test_cnt)
 	{
 		std::unique_lock<std::mutex> lock(mtx_q);
 		cond_q.wait(lock,[this] {
@@ -249,26 +246,28 @@ void Tester::start()
 		});
 		if(pause_flag)
 		{
+			lock.unlock();
+
 			std::string res;
-			
-			msg.print("quit testing? (y/n): ");
+			std::cout<<"quit testing? (y/n): ";
 			std::getline(std::cin,res);
+			pause_flag.store(false);
 			if(res=="y" || res=="Y")
 			{
-				stop_flag=true;
+				stop_flag.store(true);
 				cond_pause.notify_all();
 				break;
 			}
-			stop_flag=false;
 			std::signal(SIGINT,[](int){ tryQuit(); });
 			cond_pause.notify_all();
+			continue;
 		}
 
 		auto [id,result]=result_q.front();
 		result_q.pop();
 		lock.unlock();
 
-		msg.print("Testcase #{0}: ",idx);
+		msg.print("Testcase #{0}: ",++idx);
 		switch(result.type)
 		{
 		 case JudgeResult::OK:
@@ -277,22 +276,30 @@ void Tester::start()
 
 		 case JudgeResult::WA:
 			handleWrongAnswer(idx,id);
-			break;
+			goto bad_result;
 
 		 case JudgeResult::EXE_ERR:
 			handleBadResult("Testee",result.info,opt.tl,opt.ml);
-			break;
+			goto bad_result;
 
 		 case JudgeResult::STD_ERR:
 			handleBadResult("Standard",result.info,opt.tl,opt.ml);
-			break;
+			goto bad_result;
 
 		 case JudgeResult::GEN_ERR:
 			handleBadResult("Generator",result.info,opt.tl_gen,opt.ml_gen);
-			break;
+			goto bad_result;
 
 		 case JudgeResult::CHK_ERR:
 			handleBadResult("Checher",result.info,opt.tl_chk,opt.ml_chk);
+			goto bad_result;
+		
+		 case JudgeResult::TERM:
+			msg.warning("well sth impossible just happened...");
+			break;
+
+		 bad_result:
+			moveFiles(id);
 			break;
 		}
 	}

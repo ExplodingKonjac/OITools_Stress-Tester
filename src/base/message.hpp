@@ -2,6 +2,7 @@
 
 #include <format>
 #include <iostream>
+#include <cstdint>
 
 struct TextAttr
 {
@@ -40,7 +41,7 @@ inline constexpr TextAttr::Mask &operator |=(TextAttr::Mask &a,TextAttr::Mask b)
 inline constexpr TextAttr::Mask &operator ^=(TextAttr::Mask &a,TextAttr::Mask b)
 { return a=a^b; }
 
-inline constexpr std::string ansi(TextAttr::Mask mask,const TextAttr &attr)
+inline std::string ansi(TextAttr::Mask mask,const TextAttr &attr)
 {
 	if(mask&TextAttr::CLEAR) return "\e[0m";
 	std::string res("\e[");
@@ -93,23 +94,29 @@ class MessageStream
 	void error(const std::format_string<Args...> &fmt,Args &&...args)
 	{
 		print(TextAttr::FOREGROUND|TextAttr::BOLD,TextAttr{.foreground=9,.bold=true},"error: ");
-		stream<<std::format(fmt,std::forward<Args&&>(args)...)<<std::endl;
+		(*stream)<<std::format(fmt,std::forward<Args&&>(args)...)<<std::endl;
 	}
 
 	template<typename ...Args>
 	void fatal(const std::format_string<Args...> &fmt,Args &&...args)
 	{
 		print(TextAttr::FOREGROUND|TextAttr::BOLD,TextAttr{.foreground=9,.bold=true},"fatal error: ");
-		stream<<std::format(fmt,std::forward<Args&&>(args)...)<<std::endl;
+		(*stream)<<std::format(fmt,std::forward<Args&&>(args)...)<<std::endl;
 	}
 
 	template<typename ...Args>
 	void note(const std::format_string<Args...> &fmt,Args &&...args)
 	{
 		print(TextAttr::FOREGROUND|TextAttr::BOLD,TextAttr{.foreground=14,.bold=true},"note: ");
-		stream<<std::format(fmt,std::forward<Args&&>(args)...)<<std::endl;
+		(*stream)<<std::format(fmt,std::forward<Args&&>(args)...)<<std::endl;
+	}
+
+	template<typename ...Args>
+	void warning(const std::format_string<Args...> &fmt,Args &&...args)
+	{
+		print(TextAttr::FOREGROUND|TextAttr::BOLD,TextAttr{.foreground=13,.bold=true},"warning: ");
+		(*stream)<<std::format(fmt,std::forward<Args&&>(args)...)<<std::endl;
 	}
 };
 
-inline MessageStream msg(&std::cout);
-inline MessageStream err(&std::cerr);
+inline MessageStream msg(&std::cerr);

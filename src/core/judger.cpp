@@ -25,7 +25,10 @@ Judger::Judger(const std::string &_id,
 	input_path(_prefix/fs::path(_id+".in")),
 	output_path(_prefix/fs::path(_id+".out")),
 	answer_path(_prefix/fs::path(_id+".ans")),
-	log_path(_prefix/fs::path(_id+".log"))
+	log_path(_prefix/fs::path(_id+".log")),
+	cur_proc(nullptr),
+	mtx_cur_proc(std::make_unique<std::mutex>()),
+	wait_timeout(std::make_unique<WaitTimeoutWrapper>())
 {}
 
 ProcessInfo Judger::watchProcess(bp::process &proc,
@@ -33,10 +36,10 @@ ProcessInfo Judger::watchProcess(bp::process &proc,
 								 std::size_t memory_limit)
 {
 	ProcessInfo res;
+	bool wait_res=false;
 
 #if defined(_WIN32)
 	HANDLE handle=proc.native_handle();
-
 	auto getTimeUsage=[&]()->std::size_t {
 		FILETIME creation_time,exit_time,kernel_time,user_time;
 		GetProcessTimes(handle,&creation_time,&exit_time,&kernel_time,&user_time);
@@ -47,91 +50,66 @@ ProcessInfo Judger::watchProcess(bp::process &proc,
 		GetProcessMemoryInfo(handle,(PROCESS_MEMORY_COUNTERS*)&mem_info,sizeof(mem_info));
 		return std::max(mem_info.PeakWorkingSetSize,mem_info.PrivateUsage);
 	};
-	
+
 	auto lim=std::chrono::steady_clock::now()+std::chrono::milliseconds(time_limit+200);
-	while(std::chrono::steady_clock::now()<=lim && proc.running())
+	while(std::chrono::steady_clock::now()<=lim &&
+		  !(wait_res=WaitForSingleObject(handle,15)))
 	{
 		std::size_t mem=getMemoryUsage();
 		if(mem>memory_limit)
 		{
 			proc.terminate();
+			res.memory_used=mem;
 			res.type=ProcessInfo::MLE;
 			return res;
 		}
-		if(stopped)
-		{
-			proc.terminate();
-			res.type=ProcessInfo::TERM;
-			return res;
-		}
-		Sleep(15);
 	}
-	if(proc.running())
+
+#elif defined(__linux__)
+	auto pid=proc.id();
+
+	rlimit mem_lim{memory_limit+1024,memory_limit+1024};
+	prlimit(pid,RLIMIT_AS,&mem_lim,nullptr);
+	prlimit(pid,RLIMIT_STACK,&mem_lim,nullptr);
+
+	rusage usage{};
+	auto getTimeUsage=[&usage]()->std::size_t {
+		return usage.ru_utime.tv_sec+usage.ru_utime.tv_usec/1000;
+	};
+	auto getMemoryUsage=[&usage]()->std::size_t {
+		return usage.ru_maxrss*1024;
+	};
+
+	wait_res=wait_timeout->wait(pid,0,0,&usage,time_limit+100);
+
+#endif
+	if(stopped)
+	{
+		res.type=ProcessInfo::TERM;
+		return res;
+	}
+	if(!wait_res && proc.running())
 	{
 		proc.terminate();
 		res.type=ProcessInfo::TLE;
 		return res;
 	}
-	proc.wait();
+#ifdef __linux__
+	wait_timeout->join();
+#endif
 
 	res.exit_code=proc.exit_code();
 	res.time_used=getTimeUsage();
 	res.memory_used=getMemoryUsage();
-
-	if(res.exit_code!=0)
-		res.type=ProcessInfo::RE;
-	else if(res.time_used>time_limit)
-		res.type=ProcessInfo::TLE;
-	else if(res.memory_used>memory_limit)
-		res.type=ProcessInfo::MLE;
-
-#elif defined(__linux__)
-	auto pid=proc.id();
-	
-	rlimit tim_lim{time_limit/1000+1,time_limit/1000+1},mem_lim{memory_limit,memory_limit};
-	prlimit(pid,RLIMIT_CPU,&tim_lim,nullptr);
-	prlimit(pid,RLIMIT_AS,&mem_lim,nullptr);
-	prlimit(pid,RLIMIT_STACK,&mem_lim,nullptr);
-
-	int status=0;
-	rusage usage{};
-	while(!wait4(pid,&status,0,&usage))
-	{
-		if(stopped)
-		{
-			kill(pid,SIGKILL);
-			wait(NULL);
-			res.type=ProcessInfo::TERM;
-			return res;
-		}
-		usleep(15000);
-	}
-	if(WIFSIGNALED(status) && WTERMSIG(status)==SIGXCPU)
-	{
-		res.type=ProcessInfo::TLE;
-		return res;
-	}
-
-	res.exit_code=status;
-	res.time_used=usage.ru_utime.tv_sec+usage.ru_utime.tv_usec/1000;
-	res.memory_used=usage.ru_maxrss*1024;
 
 	if(res.time_used>time_limit)
 		res.type=ProcessInfo::TLE;
 	else if(res.memory_used>memory_limit)
 		res.type=ProcessInfo::MLE;
 	else if(res.exit_code!=0)
-	{
 		res.type=ProcessInfo::RE;
-		if(WIFEXITED(status))
-			res.exit_code=WEXITSTATUS(status);
-		else if(WIFSIGNALED(status))
-			res.exit_code=WTERMSIG(status);
-		else if(WIFSTOPPED(status))
-			res.exit_code=WSTOPSIG(status);
-	}
-#endif
-
+	else
+		res.type=ProcessInfo::OK;
 	return res;
 }
 
@@ -151,7 +129,14 @@ ProcessInfo Judger::runProgram(const fs::path &target,
 		bp::process_stdio{inf,ouf,erf},
 		bp::process_start_dir{prefix}
 	);
-	return watchProcess(proc,time_limit,memory_limit);
+	std::unique_lock<std::mutex> lock(*mtx_cur_proc);
+	cur_proc=&proc;
+	lock.unlock();
+
+	ProcessInfo res=watchProcess(proc,time_limit,memory_limit);
+	lock.lock();
+	cur_proc=nullptr;
+	return res;
 }
 
 JudgeResult Judger::judge()
@@ -189,22 +174,27 @@ JudgeResult Judger::judge()
 		return JudgeResult{JudgeResult::STD_ERR,std_info};
 
 	ProcessInfo chk_info=runProgram(
-		chk_path,{input_path.string(),output_path.string(),answer_path.string()},
+		chk_path,{input_path.filename().string(),output_path.filename().string(),answer_path.filename().string()},
 		opt.tl_chk,opt.ml_chk*1024*1024,
 		prefix,null_path,null_path,log_path
 	);
 	if(stopped)
 		return JudgeResult{JudgeResult::TERM};
 	else if(chk_info.type==ProcessInfo::RE)
-		return JudgeResult{JudgeResult::WA,std_info};
+		return JudgeResult{JudgeResult::WA,exe_info};
 	else if(chk_info.type!=ProcessInfo::OK)
-		return JudgeResult{JudgeResult::GEN_ERR,gen_info};
+		return JudgeResult{JudgeResult::CHK_ERR,chk_info};
 
-	return JudgeResult{JudgeResult::OK,std_info};
+	return JudgeResult{JudgeResult::OK,exe_info};
 }
 
 void Judger::terminate()
-{ stopped=true; }
+{
+	std::lock_guard lock(*mtx_cur_proc);
+	stopped=true;
+	if(cur_proc && cur_proc->running())
+		cur_proc->terminate();
+}
 
 fs::path Judger::getInputPath()const
 { return input_path; }

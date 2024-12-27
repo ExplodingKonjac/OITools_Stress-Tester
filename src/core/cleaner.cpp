@@ -1,28 +1,22 @@
 #include "cleaner.h"
 
-namespace Cleaner
-{
+namespace fs=boost::filesystem;
 
-void tryDelete(const std::string &name)
+void Cleaner::tryDelete(const std::string &name)
 {
-	namespace fs=std::filesystem;
-
-	std::error_code ec;
-	bool ret=fs::remove(name,ec);
-	if(ret)
-		printMessage("Successfully deleted file %s.",name.c_str());
+	boost::system::error_code ec;
+	fs::remove(name,ec);
+	if(ec)
+		msg.error("failed to remove file {0} ({1}): {2}",name,ec.value(),ec.message());
 	else
-		printMessage("Failed to delete file %s (%d).",name.c_str(),ec.value());
+		msg.print("successfully removed file {0}\n",name);
 }
-void main(const std::vector<const char*> &args)
+
+void Cleaner::start()
 {
-	if(args.size()>1)
-		printMessage("Redundant arguments ignored.");
 	tryDelete("compile.log");
 	tryDelete(opt.file+".in");
 	tryDelete(opt.file+".out");
 	tryDelete(opt.file+".ans");
 	tryDelete(opt.file+".log");
 }
-
-} // namespace Cleaner

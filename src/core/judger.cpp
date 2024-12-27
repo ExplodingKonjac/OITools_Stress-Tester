@@ -26,9 +26,10 @@ Judger::Judger(const std::string &_id,
 	output_path(_prefix/fs::path(_id+".out")),
 	answer_path(_prefix/fs::path(_id+".ans")),
 	log_path(_prefix/fs::path(_id+".log")),
+	flag_stop{},
 	cur_proc(nullptr),
-	mtx_cur_proc(std::make_unique<std::mutex>()),
-	wait_timeout(std::make_unique<WaitTimeoutWrapper>())
+	mtx_cur_proc{},
+	wait_timeout{}
 {}
 
 ProcessInfo Judger::watchProcess(bp::process &proc,
@@ -36,7 +37,6 @@ ProcessInfo Judger::watchProcess(bp::process &proc,
 								 std::size_t memory_limit)
 {
 	ProcessInfo res;
-	bool wait_res=false;
 
 #if defined(_WIN32)
 	HANDLE handle=proc.native_handle();
@@ -64,6 +64,21 @@ ProcessInfo Judger::watchProcess(bp::process &proc,
 			return res;
 		}
 	}
+	if(proc.running())
+	{
+		proc.terminate();
+		res.type=ProcessInfo::TLE;
+		return res;
+	}
+	if(stopped)
+	{
+		res.type=ProcessInfo::TERM;
+		return res;
+	}
+
+	res.exit_code=proc.wait();
+	res.time_used=getTimeUsage();
+	res.memory_used=getMemoryUsage();
 
 #elif defined(__linux__)
 	auto pid=proc.id();
@@ -73,35 +88,29 @@ ProcessInfo Judger::watchProcess(bp::process &proc,
 	prlimit(pid,RLIMIT_STACK,&mem_lim,nullptr);
 
 	rusage usage{};
-	auto getTimeUsage=[&usage]()->std::size_t {
-		return usage.ru_utime.tv_sec+usage.ru_utime.tv_usec/1000;
-	};
-	auto getMemoryUsage=[&usage]()->std::size_t {
-		return usage.ru_maxrss*1024;
-	};
-
-	wait_res=wait_timeout->wait(pid,0,0,&usage,time_limit+100);
-
-#endif
-	if(stopped)
-	{
-		res.type=ProcessInfo::TERM;
-		return res;
-	}
-	if(!wait_res && proc.running())
+	int status;
+	if(!wait_timeout(pid,&status,0,&usage,time_limit+100))
 	{
 		proc.terminate();
+		wait_timeout.join();
 		res.type=ProcessInfo::TLE;
 		return res;
 	}
-#ifdef __linux__
-	wait_timeout->join();
+	if(flag_stop)
+	{
+		wait_timeout.join();
+		res.type=ProcessInfo::TERM;
+		return res;
+	}
+
+	wait_timeout.join();
+	res.exit_code=WIFEXITED(status)?WEXITSTATUS(status):
+				  WIFSIGNALED(status)?WTERMSIG(status):
+				  status;
+	res.time_used=usage.ru_utime.tv_sec+usage.ru_utime.tv_usec/1000;
+	res.memory_used=usage.ru_maxrss*1024;
+
 #endif
-
-	res.exit_code=proc.exit_code();
-	res.time_used=getTimeUsage();
-	res.memory_used=getMemoryUsage();
-
 	if(res.time_used>time_limit)
 		res.type=ProcessInfo::TLE;
 	else if(res.memory_used>memory_limit)
@@ -129,7 +138,7 @@ ProcessInfo Judger::runProgram(const fs::path &target,
 		bp::process_stdio{inf,ouf,erf},
 		bp::process_start_dir{prefix}
 	);
-	std::unique_lock<std::mutex> lock(*mtx_cur_proc);
+	std::unique_lock<std::mutex> lock(mtx_cur_proc);
 	cur_proc=&proc;
 	lock.unlock();
 
@@ -141,14 +150,14 @@ ProcessInfo Judger::runProgram(const fs::path &target,
 
 JudgeResult Judger::judge()
 {
-	stopped=false;
+	flag_stop.store(false);
 
 	ProcessInfo gen_info=runProgram(
 		gen_path,opt.gen_opt,
 		opt.tl_gen,opt.ml_gen*1024*1024,
 		prefix,null_path,input_path,null_path
 	);
-	if(stopped)
+	if(flag_stop)
 		return JudgeResult{JudgeResult::TERM};
 	else if(gen_info.type!=ProcessInfo::OK)
 		return JudgeResult{JudgeResult::GEN_ERR,gen_info};
@@ -158,7 +167,7 @@ JudgeResult Judger::judge()
 		opt.tl,opt.ml*1024*1024,
 		prefix,input_path,output_path,null_path
 	);
-	if(stopped)
+	if(flag_stop)
 		return JudgeResult{JudgeResult::TERM};
 	else if(exe_info.type!=ProcessInfo::OK)
 		return JudgeResult{JudgeResult::EXE_ERR,exe_info};
@@ -168,7 +177,7 @@ JudgeResult Judger::judge()
 		opt.tl,opt.ml*1024*1024,
 		prefix,input_path,answer_path,null_path
 	);
-	if(stopped)
+	if(flag_stop)
 		return JudgeResult{JudgeResult::TERM};
 	else if(std_info.type!=ProcessInfo::OK)
 		return JudgeResult{JudgeResult::STD_ERR,std_info};
@@ -178,7 +187,7 @@ JudgeResult Judger::judge()
 		opt.tl_chk,opt.ml_chk*1024*1024,
 		prefix,null_path,null_path,log_path
 	);
-	if(stopped)
+	if(flag_stop)
 		return JudgeResult{JudgeResult::TERM};
 	else if(chk_info.type==ProcessInfo::RE)
 		return JudgeResult{JudgeResult::WA,exe_info};
@@ -190,8 +199,8 @@ JudgeResult Judger::judge()
 
 void Judger::terminate()
 {
-	std::lock_guard lock(*mtx_cur_proc);
-	stopped=true;
+	std::lock_guard lock(mtx_cur_proc);
+	flag_stop.store(true);
 	if(cur_proc && cur_proc->running())
 		cur_proc->terminate();
 }

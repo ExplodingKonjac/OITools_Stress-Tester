@@ -23,18 +23,18 @@ Tester::~Tester()
 
 void Tester::judgingThread(std::size_t id)
 {
-	Judger &judger=judgers[id];
-	while(!stop_flag && tot<opt.test_cnt)
+	Judger &judger=*judgers[id];
+	while(!flag_stop && tot<opt.test_cnt)
 	{
 		JudgeResult res=judger.judge();
 		std::unique_lock<std::mutex> lock(mtx_q);
 		cond_pause.wait(lock,[this] {
-			return !pause_flag;
+			return !flag_pause;
 		});
-		if(!stop_flag && res.type!=JudgeResult::TERM)
+		if(!flag_stop && res.type!=JudgeResult::TERM)
 		{
 			if(res.type!=JudgeResult::OK)
-				stop_flag.store(true);
+				flag_stop.store(true);
 			result_q.emplace(id,res);
 			tot++;
 			cond_q.notify_one();
@@ -139,7 +139,7 @@ fs::path Tester::createTempDirectory()
 void Tester::handleWrongAnswer(std::size_t idx,std::size_t id)
 {
 	std::string chk_msg(256,'\0'),hint_msg;
-	std::ifstream inf(judgers[id].getLogPath());
+	std::ifstream inf(judgers[id]->getLogPath());
 
 	inf.read(chk_msg.data(),chk_msg.size());
 	std::size_t sz=inf.gcount();
@@ -199,7 +199,7 @@ void Tester::moveFiles(std::size_t id)
 		if(ec) msg.error("failed to get {0} ({1}): {2}",to.filename().string(),ec.value(),ec.message());
 	};
 
-	const Judger &judger=judgers[id];
+	const Judger &judger=*judgers[id];
 	tryMove(judger.getInputPath(),opt.file+".in");
 	tryMove(judger.getOutputPath(),opt.file+".out");
 	tryMove(judger.getAnswerPath(),opt.file+".ans");
@@ -212,8 +212,8 @@ void Tester::start()
 
 	result_q={};
 	tot=0;
-	stop_flag.store(false);
-	pause_flag.store(false);
+	flag_stop.store(false);
+	flag_pause.store(false);
 
 	exe_path=getExePath(opt.exe_name);
 	std_path=getExePath(opt.std_name);
@@ -224,37 +224,37 @@ void Tester::start()
 	threads.clear();
 	judgers.clear();
 	for(std::size_t i=0;i<opt.thread_cnt;i++)
-		judgers.emplace_back(std::to_string(i),prefix,exe_path,std_path,gen_path,chk_path);
+		judgers.push_back(std::make_unique<Judger>(std::to_string(i),prefix,exe_path,std_path,gen_path,chk_path));
 	for(std::size_t i=0;i<opt.thread_cnt;i++)
 		threads.emplace_back(&Tester::judgingThread,this,i);
 
 	static std::function<void()> tryQuit;
 	tryQuit=[&] {
-		pause_flag.store(true);
+		flag_pause.store(true);
 		for(auto &judger: judgers)
-			judger.terminate();
+			judger->terminate();
 		cond_q.notify_one();
 	};
 	std::signal(SIGINT,[](int){ tryQuit(); });
 
 	std::size_t idx=0;
-	while(!stop_flag && idx<opt.test_cnt)
+	while(!flag_stop && idx<opt.test_cnt)
 	{
 		std::unique_lock<std::mutex> lock(mtx_q);
 		cond_q.wait(lock,[this] {
-			return !result_q.empty() || pause_flag;
+			return !result_q.empty() || flag_pause;
 		});
-		if(pause_flag)
+		if(flag_pause)
 		{
 			lock.unlock();
 
 			std::string res;
 			std::cout<<"quit testing? (y/n): ";
 			std::getline(std::cin,res);
-			pause_flag.store(false);
+			flag_pause.store(false);
 			if(res=="y" || res=="Y")
 			{
-				stop_flag.store(true);
+				flag_stop.store(true);
 				cond_pause.notify_all();
 				break;
 			}

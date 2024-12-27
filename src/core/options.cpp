@@ -149,7 +149,7 @@ int OptionParser::parseOption(int key,char *arg,argp_state *state)
 	OptionParser &parser=*static_cast<OptionParser*>(state->input);
 	const char *token;
 	auto arg2num=[&](auto &res,const char *opt) {
-		try { parser.result.tl=std::stoull(arg); }
+		try { res=std::stoull(arg); }
 	 	catch(...) { argp_failure(state,1,EINVAL,"invalid argument '%s' for %s",arg,opt); }
 	};
 	auto arg2bool=[&](auto &res,const char *opt) {

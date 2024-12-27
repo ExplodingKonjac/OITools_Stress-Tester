@@ -10,7 +10,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
-#include <memory>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -62,7 +61,7 @@ class WaitTimeoutWrapper
 		finished{},mtx{},lock(mtx),cv{}
 	{}
 	// Well it would still be wait4-ing after returns, so you need to kill the process manually.
-	bool wait(int pid,int *status,int options,rusage *usage,std::size_t timeout_ms)
+	bool operator ()(int pid,int *status,int options,rusage *usage,std::size_t timeout_ms)
 	{
 		finished.store(false);
 		t=std::thread([&] {
@@ -83,11 +82,11 @@ class Judger
 {
  private:
 	std::string id;
-	bool stopped;
 	fs::path prefix,exe_path,std_path,gen_path,chk_path,input_path,output_path,answer_path,log_path;
+	std::atomic<bool> flag_stop;
 	bp::process *cur_proc;
-	std::unique_ptr<std::mutex> mtx_cur_proc;
-	std::unique_ptr<WaitTimeoutWrapper> wait_timeout;
+	std::mutex mtx_cur_proc;
+	WaitTimeoutWrapper wait_timeout;
 
 	ProcessInfo runProgram(const fs::path &target,const std::vector<std::string> &args,std::size_t time_limit,std::size_t memory_limit,const fs::path &prefix,const fs::path &inf,const fs::path &ouf,const fs::path &erf);
 	ProcessInfo watchProcess(bp::process &proc,std::size_t time_limit,std::size_t memory_limit);

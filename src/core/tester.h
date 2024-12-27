@@ -28,14 +28,14 @@ namespace fs=boost::filesystem;
 class Tester
 {
  private:
+	fs::path prefix,exe_path,std_path,gen_path,chk_path;
 	std::queue<std::pair<std::size_t,JudgeResult>> result_q;
 	std::size_t tot;
+	std::vector<std::thread> threads;
+	std::vector<std::unique_ptr<Judger>> judgers;
+	std::atomic<bool> flag_stop,flag_pause;
 	std::mutex mtx_q;
 	std::condition_variable cond_q,cond_pause;
-	fs::path prefix,exe_path,std_path,gen_path,chk_path;
-	std::vector<std::thread> threads;
-	std::vector<Judger> judgers;
-	std::atomic<bool> stop_flag,pause_flag;
 
 	static void compileOne(const std::string &filename,const std::vector<std::string> &extra_opt,std::mutex &mtx,std::ofstream &fout,std::exception_ptr &ep);
 	static fs::path getExePath(const std::string &name,bool in_path=false);

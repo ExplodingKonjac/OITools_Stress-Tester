@@ -12,7 +12,7 @@ int main(int argc,char *argv[])
 		if(opt.args[0]=="test")
 		{
 			if(opt.args.size()<2)
-				throw std::runtime_error("missing <code> for subcommand `test'");
+				throw std::runtime_error("missing CODE for subcommand `test'");
 			if(opt.args.size()>2)
 				msg.warning("redundant arguments ignored");
 			opt.exe_name=opt.args[1];

@@ -96,18 +96,18 @@ void OptionParser::handleError(const option *long_options)
 {
 	if(optopt)
 	{
-		for(auto it=long_options;it->name;it++)
-			if(it->val==optopt)
-			{
-				if(it->has_arg==no_argument)
-					msg.error("option doesn't take an argument -- {0}",it->name);
-				else if(argv[optind-1][1]=='-')
-					msg.error("option requires an argument -- {0}",it->name);
-				else
-					msg.error("option requires an argument -- {0}",(char)optopt);
-				return;
-			}
-		msg.error("unrecognized option -- {0}",(char)optopt);
+		const option *x=nullptr;
+		for(auto i=long_options;i->name;i++)
+			if(i->val==optopt)
+				{ x=i; break; }
+		if(!x)
+			msg.error("unrecognized option -- {0}",(char)optopt);
+		else if(x->has_arg==no_argument)
+			msg.error("option doesn't take an argument -- {0}",x->name);
+		else if(argv[optind-1][1]=='-')
+			msg.error("option requires an argument -- {0}",x->name);
+		else
+			msg.error("option requires an argument -- {0}",(char)optopt);
 	}
 	else
 		msg.error("unrecognized option -- {0}",argv[optind-1]+2);
@@ -245,6 +245,8 @@ bool OptionParser::parseTest(Options &result)
 			return false;
 		}
 	}
+	while(optind<argc)
+		result.args.emplace_back(argv[optind++]);
 	return true;
 }
 
@@ -269,6 +271,8 @@ bool OptionParser::parseClean(Options &result)
 			return false;
 		}
 	}
+	while(optind<argc)
+		result.args.emplace_back(argv[optind++]);
 	return true;
 }
 
@@ -296,7 +300,5 @@ bool OptionParser::parse(Options &result)
 		res=parseGeneric(result);
 	if(!res)
 		std::cout<<info.shortHintText();
-	else while(optind<argc)
-		result.args.emplace_back(argv[optind++]);
 	return res;
 }

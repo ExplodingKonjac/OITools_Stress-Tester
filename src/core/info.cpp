@@ -6,21 +6,20 @@ Info::Info(int _argc,char *_argv[]):
 
 std::string Info::filter(const std::string &s)
 {
-
-	std::string res;
+	std::string res=s;
 	// program name
 	auto name=boost::filesystem::path(argv[0]).filename().string();
 	res=boost::regex_replace(res,boost::regex("\\$\\{program\\}"),name);
 	// variables
-	res=boost::regex_replace(s,boost::regex("<([A-Z^<>]+)>"),"\e[4m$1\e[24m");
+	res=boost::regex_replace(res,boost::regex("<([A-Z^<>]+)>"),"\e[4m$1\e[24m");
 	// bold
 	res=boost::regex_replace(res,boost::regex("\\*\\*([^\\*]+)\\*\\*"),"\e[1m$1\e[22m");
 	// italic
 	res=boost::regex_replace(res,boost::regex("\\*([^\\*]+)\\*"),"\e[3m$1\e[23m");
+  // strings
+  res=boost::regex_replace(res,boost::regex("'([^`']+)'"),"'\e[38;5;7m$1\e[39m'");
 	// command or code
-	res=boost::regex_replace(res,boost::regex("\\$\\{cmd:([^:\\}]+)\\}"),"\e[1;38;5;4m$1\e[22;39m");
-	// options
-	res=boost::regex_replace(res,boost::regex("\\$\\{opt:([^:\\}]+)\\}"),"\e[1;38;5;2m$1\e[22;39m");
+	res=boost::regex_replace(res,boost::regex("`([^`]+)`"),"`$1'");
 
 	return res;
 }
@@ -61,7 +60,7 @@ std::string Info::helpTestText()
 R"(Usage: ${program} test [<OPTION>...] <CODE>
 Perform stress test on *<CODE>.cpp*.
 
- **Options for subcommand `test'**:
+ **Options for subcommand `test`**:
       **--compile-chk**[=<BOOLEAN>]   Whether to compile *<CHK>.cpp*. Default value is
                              'false'. It is set to 'true' if no argument
                              provided.
@@ -126,7 +125,8 @@ for any corresponding short options.
 **About checker**:
   Checker code is recommended to be written with testlib. See
   <https://github.com/MikeMirzayanov/testlib/> for details. Otherwise you should
-  make your checker able to be run in the format `**chk** <INPUT> <OUTPUT> <ANSWER>',
+  make your checker able to be run in the format:
+    `chk <INPUT> <OUTPUT> <ANSWER> [<OPTION>...]`
   and return 0 when the output is accepted and non-zero otherwise. <STDERR> of
   checker will be redirected to the log file. You can pass extra arguments or
   options to the checker through **-Xc**.
@@ -140,7 +140,7 @@ std::string Info::helpCleanText()
 R"(Usage: ${program} clean [<OPTION>...]
 Clean the file produced during testing.
 
- Options for subcommand `clean':
+ Options for subcommand `clean`:
   **-f**, **--file**=<FILE>            *<FILE>.in/out/ans/log* and *compile.log* will be
                              cleaned. Default value is 'data'.
 
@@ -193,7 +193,7 @@ details.
 std::string Info::shortHintText()
 {
 	constexpr char text[]=
-R"(Try `${program} --help' or `${program} --usage' for more information.
+R"(Try `${program} --help` or `${program} --usage` for more information.
 )";
 	return filter(text);
 }

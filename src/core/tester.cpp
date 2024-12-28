@@ -13,8 +13,7 @@ Tester::~Tester()
 	{
 		boost::system::error_code ec;
 		fs::remove_all(prefix,ec);
-		if(ec)
-			msg.error("failed to remove temp directory ({0}): {1}",ec.value(),ec.message());
+		if(ec) msg.error("failed to remove temp directory ({0}): {1}",ec.value(),ec.message());
 	}
 }
 
@@ -32,8 +31,8 @@ void Tester::judgingThread(std::size_t id)
 		{
 			if(res.type!=JudgeResult::OK)
 				flag_stop.store(true);
-			result_q.emplace(id,res);
 			tot++;
+			result_q.emplace(id,res);
 			cond_q.notify_one();
 		}
 	}
@@ -51,7 +50,11 @@ fs::path Tester::getExePath(const std::string &name,bool in_path)
 	return bp::environment::find_executable(name,new_env);
 }
 
-void Tester::compileOne(const std::string &filename,const std::vector<std::string> &extra_opt,std::mutex &mtx,std::ofstream &fout,std::exception_ptr &ep)
+void Tester::compileOne(const std::string &filename,
+						const std::vector<std::string> &extra_opt,
+						std::mutex &mtx,
+						std::ofstream &fout,
+						std::exception_ptr &ep)
 {
 	try
 	{
@@ -169,12 +172,12 @@ void Tester::handleBadResult(const std::string &name,const ProcessInfo &info,std
 		if(info.time_used==(std::size_t)-1)
 			msg.print(" (killed)\n");
 		else
-			msg.print(" ({0:.2}ms/{1:.2}ms)\n",info.time_used/1024.0,tl/1024.0);
+			msg.print(" ({0}ms/{1}ms)\n",info.time_used,tl);
 		break;
 
 	 case ProcessInfo::MLE:
 		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=11},"{0} memory limit exceeded",name);
-		msg.print(" ({0:.2}MB/{1:.2}MB)\n",info.memory_used/1024.0/1024.0,ml/1024.0/1024.0);
+		msg.print(" ({0:.2}MB/{1}MB)\n",info.memory_used/1024.0/1024.0,ml);
 		break;
 
 	 case ProcessInfo::RE:
@@ -228,10 +231,14 @@ void Tester::start()
 
 	static std::function<void()> tryQuit;
 	tryQuit=[&] {
-		flag_pause.store(true);
-		for(auto &judger: judgers)
-			judger->terminate();
-		cond_q.notify_one();
+		if(!flag_pause)
+		{
+			flag_pause.store(true);
+			for(auto &judger: judgers)
+				judger->terminate();
+			cond_q.notify_one();
+		}
+		std::signal(SIGINT,[](int){ tryQuit(); });
 	};
 	std::signal(SIGINT,[](int){ tryQuit(); });
 
@@ -247,8 +254,10 @@ void Tester::start()
 			lock.unlock();
 
 			std::string res;
-			std::cout<<"quit testing? (y/n): ";
+			msg.print("quit testing? (y/n): ");
 			std::getline(std::cin,res);
+			std::cin.clear();
+			// msg.print("ok get your answer: {}.\n",res);
 			flag_pause.store(false);
 			if(res=="y" || res=="Y")
 			{
@@ -256,7 +265,6 @@ void Tester::start()
 				cond_pause.notify_all();
 				break;
 			}
-			std::signal(SIGINT,[](int){ tryQuit(); });
 			cond_pause.notify_all();
 			continue;
 		}

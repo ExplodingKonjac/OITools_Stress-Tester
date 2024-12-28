@@ -4,9 +4,6 @@ namespace bp=boost::process::v2;
 namespace as=boost::asio;
 namespace fs=boost::filesystem;
 
-Tester::Tester()
-{}
-
 Tester::~Tester()
 {
 	for(auto &t: threads)
@@ -48,7 +45,8 @@ fs::path Tester::getExePath(const std::string &name,bool in_path)
 	if(in_path)
 		val.push_back(bp::environment::get("PATH"));
 	std::unordered_map<bp::environment::key,bp::environment::value> new_env{
-		{"PATH",val}
+		{"PATH",val},
+		{"PATHEXT",bp::environment::get("PATHEXT")}
 	};
 	return bp::environment::find_executable(name,new_env);
 }
@@ -58,7 +56,7 @@ void Tester::compileOne(const std::string &filename,const std::vector<std::strin
 	try
 	{
 		std::vector<std::string> compiler_opt{filename+".cpp","-o",filename};
-		compiler_opt.insert(compiler_opt.end(),extra_opt.begin(),extra_opt.end());
+		compiler_opt+=extra_opt;
 
 		as::io_context ctx;
 		as::readable_pipe pipe(ctx);
@@ -112,12 +110,12 @@ void Tester::compileExecutables()
 		threads.emplace_back(&Tester::compileOne,name,opt,std::ref(mtx),std::ref(fout),std::ref(ep));
 	};
 
-	addone(opt.exe_name,opt.compiler_opt);
-	addone(opt.std_name,opt.compiler_opt);
+	addone(opt.exe_name,opt.opt_compile_exe);
+	addone(opt.std_name,opt.opt_compile_exe);
 	if(opt.compile_gen)
-		addone(opt.gen_name,{});
+		addone(opt.gen_name,opt.opt_compile_gen);
 	if(opt.compile_chk)
-		addone(opt.chk_name,{});
+		addone(opt.chk_name,opt.opt_compile_chk);
 	for(auto &t: threads)
 		t.join();
 
@@ -167,7 +165,7 @@ void Tester::handleBadResult(const std::string &name,const ProcessInfo &info,std
 	switch(info.type)
 	{
 	 case ProcessInfo::TLE:
-		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=11},"{0} time limit exceeded ",name);
+		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=11},"{0} time limit exceeded",name);
 		if(info.time_used==(std::size_t)-1)
 			msg.print(" (killed)\n");
 		else
@@ -175,7 +173,7 @@ void Tester::handleBadResult(const std::string &name,const ProcessInfo &info,std
 		break;
 
 	 case ProcessInfo::MLE:
-		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=11},"{0} memory limit exceeded ",name);
+		msg.print(TextAttr::FOREGROUND,TextAttr{.foreground=11},"{0} memory limit exceeded",name);
 		msg.print(" ({0:.2}MB/{1:.2}MB)\n",info.memory_used/1024.0/1024.0,ml/1024.0/1024.0);
 		break;
 

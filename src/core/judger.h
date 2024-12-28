@@ -1,7 +1,7 @@
 #pragma once
 
 #include "config.hpp"
-
+#include "common.hpp"
 #include "options.h"
 
 #include <boost/process.hpp>
@@ -86,7 +86,9 @@ class Judger
 	std::atomic<bool> flag_stop;
 	bp::process *cur_proc;
 	std::mutex mtx_cur_proc;
+#ifdef __linux__
 	WaitTimeoutWrapper wait_timeout;
+#endif
 
 	ProcessInfo runProgram(const fs::path &target,const std::vector<std::string> &args,std::size_t time_limit,std::size_t memory_limit,const fs::path &prefix,const fs::path &inf,const fs::path &ouf,const fs::path &erf);
 	ProcessInfo watchProcess(bp::process &proc,std::size_t time_limit,std::size_t memory_limit);

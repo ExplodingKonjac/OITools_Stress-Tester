@@ -1,8 +1,8 @@
 #pragma once
 
 #include "config.hpp"
-
 #include "message.hpp"
+#include "common.hpp"
 #include "options.h"
 #include "judger.h"
 
@@ -47,7 +47,6 @@ class Tester
 	void moveFiles(std::size_t id);
 
  public:
-	Tester();
 	~Tester();
 	void start();
 };

@@ -28,8 +28,7 @@ Judger::Judger(const std::string &_id,
 	log_path(_prefix/fs::path(_id+".log")),
 	flag_stop{},
 	cur_proc(nullptr),
-	mtx_cur_proc{},
-	wait_timeout{}
+	mtx_cur_proc{}
 {}
 
 ProcessInfo Judger::watchProcess(bp::process &proc,
@@ -52,8 +51,9 @@ ProcessInfo Judger::watchProcess(bp::process &proc,
 	};
 
 	auto lim=std::chrono::steady_clock::now()+std::chrono::milliseconds(time_limit+200);
+	DWORD wait_res=1;
 	while(std::chrono::steady_clock::now()<=lim &&
-		  !(wait_res=WaitForSingleObject(handle,15)))
+		  (wait_res=WaitForSingleObject(handle,15))!=WAIT_OBJECT_0)
 	{
 		std::size_t mem=getMemoryUsage();
 		if(mem>memory_limit)
@@ -64,15 +64,15 @@ ProcessInfo Judger::watchProcess(bp::process &proc,
 			return res;
 		}
 	}
-	if(proc.running())
+	if(flag_stop)
+	{
+		res.type=ProcessInfo::TERM;
+		return res;
+	}
+	if(wait_res!=WAIT_OBJECT_0)
 	{
 		proc.terminate();
 		res.type=ProcessInfo::TLE;
-		return res;
-	}
-	if(stopped)
-	{
-		res.type=ProcessInfo::TERM;
 		return res;
 	}
 
@@ -91,7 +91,7 @@ ProcessInfo Judger::watchProcess(bp::process &proc,
 	int status;
 	if(!wait_timeout(pid,&status,0,&usage,time_limit+100))
 	{
-		proc.terminate();
+		if(proc.running()) proc.terminate();
 		wait_timeout.join();
 		res.type=ProcessInfo::TLE;
 		return res;
@@ -153,7 +153,8 @@ JudgeResult Judger::judge()
 	flag_stop.store(false);
 
 	ProcessInfo gen_info=runProgram(
-		gen_path,opt.gen_opt,
+		gen_path,
+		opt.opt_gen,
 		opt.tl_gen,opt.ml_gen*1024*1024,
 		prefix,null_path,input_path,null_path
 	);
@@ -163,7 +164,8 @@ JudgeResult Judger::judge()
 		return JudgeResult{JudgeResult::GEN_ERR,gen_info};
 
 	ProcessInfo exe_info=runProgram(
-		exe_path,{},
+		exe_path,
+		opt.opt_exe,
 		opt.tl,opt.ml*1024*1024,
 		prefix,input_path,output_path,null_path
 	);
@@ -173,7 +175,8 @@ JudgeResult Judger::judge()
 		return JudgeResult{JudgeResult::EXE_ERR,exe_info};
 
 	ProcessInfo std_info=runProgram(
-		std_path,{},
+		std_path,
+		opt.opt_exe,
 		opt.tl,opt.ml*1024*1024,
 		prefix,input_path,answer_path,null_path
 	);
@@ -183,7 +186,8 @@ JudgeResult Judger::judge()
 		return JudgeResult{JudgeResult::STD_ERR,std_info};
 
 	ProcessInfo chk_info=runProgram(
-		chk_path,{input_path.filename().string(),output_path.filename().string(),answer_path.filename().string()},
+		chk_path,
+		std::vector{input_path.filename().string(),output_path.filename().string(),answer_path.filename().string()}+opt.opt_chk,
 		opt.tl_chk,opt.ml_chk*1024*1024,
 		prefix,null_path,null_path,log_path
 	);

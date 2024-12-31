@@ -16,10 +16,6 @@ std::string Info::filter(const std::string &s)
 	res=boost::regex_replace(res,boost::regex("\\*\\*([^\\*]+)\\*\\*"),"\e[1m$1\e[22m");
 	// italic
 	res=boost::regex_replace(res,boost::regex("\\*([^\\*]+)\\*"),"\e[3m$1\e[23m");
-  // strings
-  res=boost::regex_replace(res,boost::regex("'\\{([^'{}]+)\\}'"),"\e[38;5;173m'$1'\e[39m");
-	// command or code
-	res=boost::regex_replace(res,boost::regex("`\\{([^`]+)\\}`"),"\e[38;5;75m`$1'\e[39m");
 
 	return res;
 }
@@ -36,8 +32,7 @@ R"(Usage: ${program} {test|clean} [<OPTION>...] [<ARGS>...]
 std::string Info::helpGenericText()
 {
 	constexpr char text[]=
-R"(
-Usage: ${program} {test|clean} [<OPTION>...] [<ARGS>...]
+R"(Usage: ${program} {test|clean} [<OPTION>...] [<ARGS>...]
   or:  ${program} --help[={test|clean|checkers}]
 
  Generic options:
@@ -63,46 +58,46 @@ Perform stress test on *<CODE>.cpp*.
  **Options for subcommand `{test}`**:
       **--compile-chk**[=<BOOLEAN>]
                              Whether to compile *<CHK>.cpp*. Default value is
-                             '{false}'. It is set to '{true}' if no argument
+                             **'false'**. It is set to **'true'** if no argument
                              provided.
       **--compile-gen**[=<BOOLEAN>]
                              Whether to compile *<GEN>.cpp*. Default value is
-                             '{true}'. It is set to '{true}' if no argument
+                             **'true'**. It is set to **'true'** if no argument
                              provided.
   **-c**, **--chk**=<CHK>              Set the checker to <CHK>, and checker code to
-                             *<CHK>.cpp*. Default value is '{chk}'.
+                             *<CHK>.cpp*. Default value is **'chk'**.
   **-f**, **--file**=<FILE>            Set the filename of the files produced to
-                             *<FILE>.in/out/ans/log*. Default value is '{data}'.
+                             *<FILE>.in/out/ans/log*. Default value is **'data'**.
   **-g**, **--gen**=<GEN>              Set the generator to <GEN>, and generator code to
-                             *<GEN>.cpp*. Default value is '{gen}'.
+                             *<GEN>.cpp*. Default value is **'gen'**.
   **-j**, **--jobs**=<NUM>             Set the number of threads used in testing. Default
-                             value is '{1}'.
+                             value is **'1'**.
       **--ml-chk**=<ML>            Set the memory limit for checker to <ML> MB. Default
-                             value is '{2048}'.
+                             value is **'2048'**.
       **--ml-gen**=<ML>            Set the memory limit for generator to <ML> MB.
-                             Default value is '{2048}'.
+                             Default value is **'2048'**.
   **-M**, **--ml**=<ML>                Set the memory limit for testee and standard code
-                             to <ML> MB. Default value is '{512}'.
-  **-n**, **--tests**={<NUM>|infinity} Set the number of testcases to <NUM> or '{infinity}'.
-                             Default value is '{infinity}'.
+                             to <ML> MB. Default value is **'512'**.
+  **-n**, **--tests**={<NUM>|infinity} Set the number of testcases to <NUM> or **'infinity'**.
+                             Default value is **'infinity'**.
   **-s**, **--std**=<STD>              Set the standard code to *<STD>.cpp*. Default value is
-                             '{std}'.
+                             **'std'**.
       **--tl-chk**=<TL>            Set the time limit for checker to <TL> ms. Default
-                             value is '{5000}'.
+                             value is **'5000'**.
       **--tl-gen**=<TL>            Set the time limit for generator to <TL> ms. Default
-                             value is '{5000}'.
+                             value is **'5000'**.
   **-T**, **--tl**=<TL>                Set the time limit for testee and standard code to
-                             <TL> ms. Default value is '{1000}'.
+                             <TL> ms. Default value is **'1000'**.
   **-Wc**,<ARGS>                   Comma seperated extra arguments or options that
                              will be passed to compiler when compiling checker
-                             code. Default value is '{-std=c++20,-O2}'.
+                             code. Default value is **'-std=c++20,-O2'**.
   **-We**,<ARGS>                   Comma seperated extra arguments or options that
                              will be passed to compiler when compiling
                              testee/standard code. Default value is
-                             '{-std=c++20,-O2}'.
+                             **'-std=c++20,-O2'**.
   **-Wg**,<ARGS>                   Comma seperated extra arguments or options that
                              will be passed to compiler when compiling
-                             generator code. Default value is '{-std=c++20,-O2}'.
+                             generator code. Default value is **'-std=c++20,-O2'**.
   **-Xc**,<ARGS>                   Comma seperated extra arguments or options that
                              will be passed to checker. By default it's empty.
   **-Xe**,<ARGS>                   Comma seperated extra arguments or options that
@@ -128,7 +123,7 @@ for any corresponding short options.
   Checker code is recommended to be written with testlib. See
   <https://github.com/MikeMirzayanov/testlib/> for details. Otherwise you should
   make your checker able to be run in the format:
-    `{chk <INPUT> <OUTPUT> <ANSWER> [<OPTION>...]}`
+    **`chk <INPUT> <OUTPUT> <ANSWER> [<OPTION>...]`**
   and return 0 when the output is accepted and non-zero otherwise. <STDERR> of
   checker will be redirected to the log file. You can pass extra arguments or
   options to the checker through **-Xc**.
@@ -144,7 +139,7 @@ Clean the file produced during testing.
 
  Options for subcommand `{clean}`:
   **-f**, **--file**=<FILE>            *<FILE>.in/out/ans/log* and *compile.log* will be
-                             cleaned. Default value is '{data}'.
+                             cleaned. Default value is **'data'**.
 
 Mandatory or optional arguments to long options are also mandatory or optional
 for any corresponding short options.
@@ -170,7 +165,7 @@ recognized.
   **chk-icmp**                   Compare **int** numbers.
   **chk-lcmp**                   Compare **long** int numbers.
   **chk-ncmp**                   Compare sequences of **long long** numbers.
-  **chk-nyesno**                 Compare two sequences of '{YES}'/'{NO}'s (case
+  **chk-nyesno**                 Compare two sequences of **'YES'**/**'NO'**s (case
                              insensitive).
   **chk-rcmp**                   Compare **double**s (1.5e-6 absolute error allowed).
   **chk-rcmp4**                  Compare sequences of **double**s (1e-4 absolute or
@@ -184,7 +179,7 @@ recognized.
   **chk-uncmp**                  Compare unordered sequences of **long long** numbers.
   **chk-wcmp**                   Compare sequences of tokens (it can handle most
                              situations).
-  **chk-yesno**                  Compare '{YES}'/'{NO}'s (case insensitive).
+  **chk-yesno**                  Compare **'YES'**/**'NO'**s (case insensitive).
 
 See <https://github.com/MikeMirzayanov/testlib/tree/master/checkers> for
 details.
@@ -195,7 +190,7 @@ details.
 std::string Info::shortHintText()
 {
 	constexpr char text[]=
-R"(Try `{${program} --help}` or `{${program} --usage}` for more information.
+R"(Try **`${program} --help`** or **`${program} --usage`** for more information.
 )";
 	return filter(text);
 }

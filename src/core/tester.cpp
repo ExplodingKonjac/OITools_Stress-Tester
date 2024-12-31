@@ -44,8 +44,10 @@ fs::path Tester::getExePath(const std::string &name,bool in_path)
 	if(in_path)
 		val.push_back(bp::environment::get("PATH"));
 	std::unordered_map<bp::environment::key,bp::environment::value> new_env{
-		{"PATH",val},
-		{"PATHEXT",bp::environment::get("PATHEXT")}
+		{"PATH",val}
+#ifdef _WIN32
+		,{"PATHEXT",bp::environment::get("PATHEXT")}
+#endif
 	};
 	return bp::environment::find_executable(name,new_env);
 }

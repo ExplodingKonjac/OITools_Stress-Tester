@@ -151,7 +151,7 @@ bool OptionParser::parseGeneric(Options &result)
 			return false;
 		}
 	}
-	return true;
+	return false;
 }
 
 bool OptionParser::parseTest(Options &result)

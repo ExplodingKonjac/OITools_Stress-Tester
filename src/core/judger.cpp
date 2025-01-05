@@ -150,6 +150,10 @@ ProcessInfo Judger::runProgram(const fs::path &target,
 
 JudgeResult Judger::judge()
 {
+	boost::scope::make_scope_exit([this] {
+		for(auto &p: {input_path,output_path,answer_path,log_path})
+			fs::remove(p);
+	});
 	flag_stop.store(false);
 
 	ProcessInfo gen_info=runProgram(

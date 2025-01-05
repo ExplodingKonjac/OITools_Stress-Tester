@@ -6,6 +6,7 @@
 
 #include <boost/process.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/scope/scope_exit.hpp>
 
 #include <mutex>
 #include <condition_variable>

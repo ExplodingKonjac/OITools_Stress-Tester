@@ -31,14 +31,13 @@ Judger::Judger(const std::string &_id,
 	mtx_cur_proc{}
 {}
 
-ProcessInfo Judger::watchProcess(bp::process &proc,
-								 std::size_t time_limit,
+ProcessInfo Judger::watchProcess(std::size_t time_limit,
 								 std::size_t memory_limit)
 {
 	ProcessInfo res;
 
 #if defined(_WIN32)
-	HANDLE handle=proc.native_handle();
+	HANDLE handle=cur_proc->native_handle();
 	auto getTimeUsage=[&]()->std::size_t {
 		FILETIME creation_time,exit_time,kernel_time,user_time;
 		GetProcessTimes(handle,&creation_time,&exit_time,&kernel_time,&user_time);
@@ -58,7 +57,7 @@ ProcessInfo Judger::watchProcess(bp::process &proc,
 		std::size_t mem=getMemoryUsage();
 		if(mem>memory_limit)
 		{
-			proc.terminate();
+			cur_proc->terminate();
 			res.memory_used=mem;
 			res.type=ProcessInfo::MLE;
 			return res;
@@ -71,39 +70,39 @@ ProcessInfo Judger::watchProcess(bp::process &proc,
 	}
 	if(wait_res!=WAIT_OBJECT_0)
 	{
-		proc.terminate();
+		cur_proc->terminate();
 		res.type=ProcessInfo::TLE;
 		return res;
 	}
 
-	res.exit_code=proc.wait();
+	res.exit_code=cur_proc->wait();
 	res.time_used=getTimeUsage();
 	res.memory_used=getMemoryUsage();
 
 #elif defined(__linux__)
-	auto pid=proc.id();
-
 	rlimit mem_lim{memory_limit+1024,memory_limit+1024};
 	prlimit(pid,RLIMIT_AS,&mem_lim,nullptr);
 	prlimit(pid,RLIMIT_STACK,&mem_lim,nullptr);
 
-	rusage usage{};
-	int status;
-	if(!wait_timeout(pid,&status,0,&usage,time_limit+100))
+	int proc_fd=syscall(SYS_pidfd_open,cur_proc->id(),0);
+	pollfd poll_fd{proc_fd,POLLHUP|POLLIN};
+
+	int poll_res=poll(&proc_fd,1,time_limit+100);
+	if(cur_proc->running())
 	{
-		if(proc.running()) proc.terminate();
-		wait_timeout.join();
+		cur_proc->terminate();
 		res.type=ProcessInfo::TLE;
 		return res;
 	}
 	if(flag_stop)
 	{
-		wait_timeout.join();
 		res.type=ProcessInfo::TERM;
 		return res;
 	}
+	rusage usage{};
+	int status;
+	wait4(pid,&status,0,&usage);
 
-	wait_timeout.join();
 	res.exit_code=WIFEXITED(status)?WEXITSTATUS(status):
 				  WIFSIGNALED(status)?WTERMSIG(status):
 				  status;
@@ -131,20 +130,18 @@ ProcessInfo Judger::runProgram(const fs::path &target,
 							   const fs::path &ouf,
 							   const fs::path &erf)
 {
+	std::unique_lock<std::mutex> lock(mtx_cur_proc);
 	as::io_context ctx;
-	bp::process proc(
+	cur_proc=std::make_unique<bp::process>(
 		ctx,
 		target,args,
 		bp::process_stdio{inf,ouf,erf},
 		bp::process_start_dir{prefix}
 	);
-	std::unique_lock<std::mutex> lock(mtx_cur_proc);
-	cur_proc=&proc;
 	lock.unlock();
-
-	ProcessInfo res=watchProcess(proc,time_limit,memory_limit);
+	ProcessInfo res=watchProcess(time_limit,memory_limit);
 	lock.lock();
-	cur_proc=nullptr;
+	cur_proc.reset(nullptr);
 	return res;
 }
 

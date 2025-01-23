@@ -11,6 +11,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <memory>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -21,6 +22,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/signal.h>
+#include <poll.h>
 #endif
 
 namespace bp=boost::process::v2;
@@ -47,52 +49,17 @@ struct JudgeResult
 	ProcessInfo info;
 };
 
-#ifdef __linux__
-class WaitTimeoutWrapper
-{
- private:
-	std::atomic<bool> finished;
-	std::mutex mtx;
-	std::unique_lock<std::mutex> lock;
-	std::condition_variable cv;
-	std::thread t;
-
- public:
-	WaitTimeoutWrapper():
-		finished{},mtx{},lock(mtx),cv{}
-	{}
-	// Well it would still be wait4-ing after returns, so you need to kill the process manually.
-	bool operator ()(int pid,int *status,int options,rusage *usage,std::size_t timeout_ms)
-	{
-		finished.store(false);
-		t=std::thread([&] {
-			wait4(pid,status,options,usage);
-			finished.store(true);
-			cv.notify_one();
-		});
-		cv.wait_for(lock,std::chrono::milliseconds(timeout_ms),[this] {
-			return !!finished;
-		});
-		return finished;
-	}
-	void join() { t.join(); }
-};
-#endif
-
 class Judger
 {
  private:
 	std::string id;
 	fs::path prefix,exe_path,std_path,gen_path,chk_path,input_path,output_path,answer_path,log_path;
 	std::atomic<bool> flag_stop;
-	bp::process *cur_proc;
+	std::unique_ptr<bp::process> cur_proc;
 	std::mutex mtx_cur_proc;
-#ifdef __linux__
-	WaitTimeoutWrapper wait_timeout;
-#endif
 
 	ProcessInfo runProgram(const fs::path &target,const std::vector<std::string> &args,std::size_t time_limit,std::size_t memory_limit,const fs::path &prefix,const fs::path &inf,const fs::path &ouf,const fs::path &erf);
-	ProcessInfo watchProcess(bp::process &proc,std::size_t time_limit,std::size_t memory_limit);
+	ProcessInfo watchProcess(std::size_t time_limit,std::size_t memory_limit);
 
  public:
 	Judger(const std::string &_id,const fs::path &_prefix,const fs::path &_exe,const fs::path &_std,const fs::path &_gen,const fs::path &_chk);

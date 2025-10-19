@@ -1,6 +1,6 @@
 #pragma once
 
-#include "config.hpp"
+#include "base/config.hpp"
 
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>

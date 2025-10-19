@@ -13,6 +13,7 @@
 #include <csignal>
 #include <mutex>
 #include <atomic>
+#include <thread>
 #include <condition_variable>
 #include <fstream>
 #include <format>
@@ -28,25 +29,88 @@ namespace fs=boost::filesystem;
 class Tester
 {
  private:
-	fs::path prefix,exe_path,std_path,gen_path,chk_path;
-	std::queue<std::pair<std::size_t,JudgeResult>> result_q;
-	std::size_t tot;
-	std::vector<std::thread> threads;
-	std::vector<std::unique_ptr<Judger>> judgers;
-	std::atomic<bool> flag_stop,flag_pause;
-	std::mutex mtx_q;
-	std::condition_variable cond_q,cond_pause;
+	struct ACResult
+	{};
+	struct WAResult
+	{
+		std::string msg;
+	};
+	struct TLEResult
+	{
+		std::string_view name;
+		std::uint64_t time_used;
+		std::uint64_t time_limit;
+	};
+	struct MLEResult
+	{
+		std::string_view name;
+		std::uint64_t memory_used;
+		std::uint64_t memory_limit;
+	};
+	struct REResult
+	{
+		std::string_view name;
+		int exit_code;
+	};
+	struct UKEResult
+	{
+		std::string name;
+	};
+	using ResultType=std::variant<
+		std::exception_ptr,
+		ACResult,
+		WAResult,
+		TLEResult,
+		MLEResult,
+		REResult,
+		UKEResult
+	>;
 
-	static void compileOne(const std::string &filename,const std::vector<std::string> &extra_opt,std::mutex &mtx,std::ofstream &fout,std::exception_ptr &ep);
+	class JudgeThread
+	{
+	 public:
+		JudgeThread(Tester &parent,std::size_t id);
+		~JudgeThread()=default;
+		void run(std::stop_token);
+		void interrupt();
+		void wait();
+		const Judger &judger();
+
+	 private:
+		Tester &_parent;
+		std::size_t _id;
+		Judger _judger;
+		std::jthread _thread;
+	};
+
+	static void compileOne(const std::string &filename,
+						   const std::vector<std::string> &extra_opt,
+						   std::mutex &mtx,
+						   std::ofstream &fout,
+						   std::exception_ptr &ep);
 	static fs::path getExePath(const std::string &name,bool in_path=false);
 	static void compileExecutables();
 	static fs::path createTempDirectory();
 	void judgingThread(std::size_t id);
-	void handleWrongAnswer(std::size_t idx,std::size_t id);
-	void handleBadResult(const std::string &name,const ProcessInfo &info,std::size_t tl,std::size_t ml);
+	void handleResult(std::size_t idx,std::size_t id,const std::exception_ptr &ep);
+	void handleResult(std::size_t idx,std::size_t id,const ACResult &res);
+	void handleResult(std::size_t idx,std::size_t id,const WAResult &res);
+	void handleResult(std::size_t idx,std::size_t id,const TLEResult &res);
+	void handleResult(std::size_t idx,std::size_t id,const MLEResult &res);
+	void handleResult(std::size_t idx,std::size_t id,const REResult &res);
+	void handleResult(std::size_t idx,std::size_t id,const UKEResult &res);
 	void moveFiles(std::size_t id);
 
+	fs::path prefix,exe_path,std_path,gen_path,chk_path;
+	std::atomic<std::size_t> tot;
+	std::vector<std::unique_ptr<JudgeThread>> threads;
+	std::atomic<bool> flag_stop,flag_pause;
+	std::queue<std::pair<std::size_t,ResultType>> result_q;
+	std::mutex mtx_q;
+	std::condition_variable cond_q;
+
  public:
+	Tester()=default;
 	~Tester();
 	void start();
 };

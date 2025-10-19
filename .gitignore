@@ -1,10 +1,6 @@
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-install_manifest.txt
-Makefile
-Build/
-Testing/
+build/
+install/
+testing/
 
 # Prerequisites
 *.d

@@ -55,7 +55,7 @@ std::string Info::helpTestText()
 R"(Usage: ${program} test [<OPTION>...] <CODE>
 Perform stress test on *<CODE>.cpp*.
 
- **Options for subcommand `{test}`**:
+ **Options for subcommand `test`**:
       **--compile-chk**[=<BOOLEAN>]
                              Whether to compile *<CHK>.cpp*. Default value is
                              **'false'**. It is set to **'true'** if no argument
@@ -137,7 +137,7 @@ std::string Info::helpCleanText()
 R"(Usage: ${program} clean [<OPTION>...]
 Clean the file produced during testing.
 
- Options for subcommand `{clean}`:
+ Options for subcommand `clean`:
   **-f**, **--file**=<FILE>            *<FILE>.in/out/ans/log* and *compile.log* will be
                              cleaned. Default value is **'data'**.
 

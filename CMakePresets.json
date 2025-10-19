@@ -1,0 +1,73 @@
+{
+	"version": 8,
+	"configurePresets": [
+		{
+			"name": "basic",
+			"displayName": "Basic Preset",
+			"hidden": true,
+			"binaryDir": "${sourceDir}/build/${presetName}"
+		},
+		{
+			"name": "win-debug",
+			"inherits": ["basic"],
+			"displayName": "windows debug",
+			"generator": "MinGW Makefiles",
+			"installDir": "${sourceDir}/install/${presetName}",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
+		},
+		{
+			"name": "win-release",
+			"inherits": ["basic"],
+			"displayName": "windows release",
+			"generator": "MinGW Makefiles",
+			"installDir": "C:/Program Files/OITools",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release"
+			}
+		},
+		{
+			"name": "linux-debug",
+			"inherits": ["basic"],
+			"displayName": "linux debug",
+			"generator": "Unix Makefiles",
+			"installDir": "${sourceDir}/install/${presetName}",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
+		},
+		{
+			"name": "linux-release",
+			"inherits": ["basic"],
+			"displayName": "linux release",
+			"generator": "Unix Makefiles",
+			"installDir": "/usr/local",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release"
+			}
+		}
+	],
+	"buildPresets": [
+		{
+			"name": "win-debug",
+			"displayName": "windows debug",
+			"configurePreset": "win-debug"
+		},
+		{
+			"name": "win-release",
+			"displayName": "windows release",
+			"configurePreset": "win-release"
+		},
+		{
+			"name": "linux-debug",
+			"displayName": "linux debug",
+			"configurePreset": "linux-debug"
+		},
+		{
+			"name": "linux-release",
+			"displayName": "linux release",
+			"configurePreset": "linux-release"
+		}
+	]
+}

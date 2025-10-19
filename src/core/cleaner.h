@@ -1,7 +1,7 @@
 #pragma once
 
-#include "config.hpp"
-#include "message.hpp"
+#include "base/config.hpp"
+#include "base/message.hpp"
 #include "options.h"
 
 #include <boost/filesystem.hpp>

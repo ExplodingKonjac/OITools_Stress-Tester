@@ -1,28 +1,16 @@
 cmake_minimum_required(VERSION 3.26)
-project("OITools::Stress-Tester")
+project("OITools::Stress-Tester" VERSION 2.1.0 LANGUAGES CXX)
 
-# settings
-if(CMAKE_BUILD_TYPE AND (CMAKE_BUILD_TYPE STREQUAL "Release"))
-	message("Release mode.")
-	add_compile_options(-std=c++20 -O3 -Wall -DNDEBUG -s)
-	set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/Build/Release/)
+set(CMAKE_CXX_STANDARD 20)
 
-elseif(CMAKE_BUILD_TYPE AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
-	message("Debug mode.")
-	add_compile_options(-std=c++20 -g -Wall)
-	set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/Build/Debug/)
-
-else()
-	message(FATAL_ERROR "Unknown build type.")
-
-endif()
-
-# requires
+# requirements
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
-	execute_process(COMMAND zenity --version RESULT_VARIABLE res)
-
-	if(NOT ${res} EQUAL 0)
-		message(FATAL_ERROR "Requires zenity. Use 'sudo apt install zenity' to install.")
+	find_program(ZENITY_FOUND
+		NAMES zenity
+		PATHS ENV PATH
+	)
+	if(not ZENITY_FOUND)
+		message(FATAL_ERROR "zenity not found. Please install zenity first.")
 	endif()
 endif()
 
@@ -33,11 +21,22 @@ set(checkers_exe_list)
 add_subdirectory(checkers/)
 
 # main
-aux_source_directory(src/core/ core_src_list)
-aux_source_directory(src/base/ base_src_list)
-include_directories(src/base/)
-
-add_executable(oit-stress src/main.cpp ${core_src_list} ${base_src_list})
+add_executable(oit-stress)
+target_sources(oit-stress
+	INTERFACE
+		src/base/common.hpp
+		src/base/config.hpp
+		src/base/message.hpp
+		src/base/process.hpp
+	PRIVATE
+		src/main.cpp
+		src/core/cleaner.cpp
+		src/core/info.cpp
+		src/core/judger.cpp
+		src/core/options.cpp
+		src/core/tester.cpp
+)
+target_include_directories(oit-stress PRIVATE src)
 
 target_link_libraries(oit-stress ${Boost_LIBRARIES})
 if(CMAKE_SYSTEM_NAME MATCHES "Windows")
@@ -45,10 +44,6 @@ if(CMAKE_SYSTEM_NAME MATCHES "Windows")
 endif()
 
 # installing
-if(CMAKE_SYSTEM_NAME MATCHES "Windows")
-	set(CMAKE_INSTALL_PREFIX "C:/Program Files/OITools/")
-elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")
-	set(CMAKE_INSTALL_PREFIX "/usr/local/")
-endif()
-
-install(TARGETS oit-stress ${checkers_exe_list} RUNTIME DESTINATION bin/)
+install(TARGETS oit-stress ${checkers_exe_list}
+	RUNTIME DESTINATION bin/
+)
